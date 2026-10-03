@@ -14,7 +14,7 @@ from .dxd_reader import (
     iter_ape_dxd_chunks,
     read_ape_dxd,
 )
-from .models import APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
+from .models import APECalibratedChunk, APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
 from .segments import (
     ValidRun,
     choose_global_longest,
@@ -24,6 +24,7 @@ from .segments import (
 from .reference_workflow import ReferenceWorkflow
 
 __all__ = [
+    "APECalibratedChunk",
     "APEChannelNames",
     "APEDXDChunk",
     "APEDXDData",
