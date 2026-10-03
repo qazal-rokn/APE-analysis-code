@@ -9,6 +9,38 @@ import numpy as np
 
 
 @dataclass(frozen=True)
+class APEDXDMetadata:
+    """Lightweight file-level metadata for one canonical APE .dxd source."""
+
+    source_file: Path
+    sample_rate_hz: float
+    n_samples: int
+    duration_s: float
+    start_time: datetime | None
+    channel_names: dict[str, str]
+    channel_units: dict[str, str]
+    dewesoft_channel_count: int
+    metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class APEDXDInspection:
+    """Result of full-file bounded-memory validation."""
+
+    source_file: Path
+    sample_rate_hz: float
+    n_samples: int
+    duration_s: float
+    start_time: datetime | None
+    channel_names: dict[str, str]
+    channel_units: dict[str, str]
+    dewesoft_channel_count: int
+    chunk_size_samples: int
+    chunk_count: int
+    metadata: dict[str, Any]
+
+
+@dataclass(frozen=True)
 class APEDXDChunk:
     """One synchronized raw chunk from the five required APE channels."""
 
@@ -37,14 +69,8 @@ class APEDXDChunk:
         )
         if any(np.asarray(values).shape != (count,) for values in arrays):
             raise ValueError("all five chunk channels must match the chunk interval")
-        if not np.isfinite(self.sample_rate_hz) or self.sample_rate_hz <= 0:
+        if self.sample_rate_hz <= 0:
             raise ValueError("chunk sample rate must be positive")
-        if not np.isfinite(self.first_timestamp_s) or not np.isfinite(
-            self.last_timestamp_s
-        ):
-            raise ValueError("chunk timestamps must be finite")
-        if self.last_timestamp_s < self.first_timestamp_s:
-            raise ValueError("chunk timestamps are reversed")
 
     @property
     def n_samples(self) -> int:
@@ -52,36 +78,8 @@ class APEDXDChunk:
 
 
 @dataclass(frozen=True)
-class APEDXDInspection:
-    """Metadata returned after full-file bounded-memory validation."""
-
-    source_file: Path
-    sample_rate_hz: float
-    n_samples: int
-    duration_s: float
-    start_time: datetime | None
-    channel_names: dict[str, str]
-    channel_units: dict[str, str]
-    chunk_size_samples: int
-    chunk_count: int
-    metadata: dict[str, Any]
-
-    def __post_init__(self) -> None:
-        if not np.isfinite(self.sample_rate_hz) or self.sample_rate_hz <= 0:
-            raise ValueError("inspection sample rate must be positive")
-        if self.n_samples <= 0 or self.duration_s <= 0:
-            raise ValueError("inspection must describe a non-empty recording")
-        if self.chunk_size_samples <= 1 or self.chunk_count <= 0:
-            raise ValueError("inspection chunk information is invalid")
-
-
-@dataclass(frozen=True)
 class APEDXDData:
-    """Legacy small-input in-memory raw-data object.
-
-    Production multi-hour ingestion uses APEDXDChunk streaming. This object is
-    retained only for synthetic helpers and controlled small inputs.
-    """
+    """Compatibility full-memory raw-data object for small controlled inputs."""
 
     source_file: Path
     sample_rate_hz: float | None
