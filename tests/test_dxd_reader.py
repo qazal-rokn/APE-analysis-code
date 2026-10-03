@@ -9,7 +9,7 @@ import numpy as np
 from ape_c_lpsd.ingestion.dxd_reader import (
     DXDReaderError,
     _assemble_ape_data,
-    _validate_declared_rate,
+    _timestamps_match_declared_rate,
 )
 from ape_c_lpsd.ingestion.models import APEDXDChunk
 
@@ -122,7 +122,7 @@ class DXDAssemblyTests(unittest.TestCase):
 
     def test_declared_rate_validator_accepts_exact_20khz(self):
         t = np.arange(100, dtype=np.float64) / 20000.0
-        _validate_declared_rate(t, 20000.0)
+        self.assertTrue(_timestamps_match_declared_rate(t, 20000.0))
 
     def test_chunk_model_requires_interval_length_to_match_arrays(self):
         values = np.arange(10, dtype=np.float64)
