@@ -9,7 +9,7 @@ Dewesoft .dxd
 five explicitly named recorded channels
     |
     v
-APEDXDData
+bounded-memory synchronized chunks
 ```
 
 No calibration, filtering, cleaning, interpolation, resampling, trimming, gap
@@ -18,7 +18,7 @@ inside this stage.
 
 ## Required channels
 
-The run configuration must map exactly five APE roles to five distinct Dewesoft
+The run configuration maps exactly five APE roles to five distinct Dewesoft
 channel names:
 
 - `x_1f`: recorded first-harmonic X quadrature;
@@ -29,57 +29,67 @@ channel names:
 
 The reader never guesses these names.
 
-## Output object
+## Chunked production interface
 
-`APEDXDData` contains:
+Large Dewesoft files are not retained as one giant in-memory object.
+`iter_ape_dxd_chunks` opens the source read-only and yields one synchronized
+`APEDXDChunk` at a time. The default chunk size is 1,000,000 samples.
 
-- source path;
-- the five raw one-dimensional arrays;
-- selected-channel names and recorded units;
-- sample count;
-- start-store time reported by Dewesoft, without inventing a timezone;
-- Dewesoft's declared sample rate after the selected-channel timestamps have
-  been verified against it;
-- explicit relative timestamps only when no authoritative declared rate is
-  available and spacing is irregular;
-- Dewesoft metadata used to audit the read.
+For every chunk the reader verifies:
 
-If selected channel lengths or timestamps disagree, ingestion fails. The reader
-does not truncate, align, resample, or repair them.
+1. all five arrays and timestamp arrays have the requested length;
+2. all selected samples and timestamps are finite;
+3. the five channels have identical timestamps;
+4. timestamp spacing agrees with Dewesoft's declared sample rate;
+5. the first timestamp of each new chunk is continuous with the preceding
+   chunk.
+
+No failed check is repaired silently.
+
+The command-line ingestion wrapper uses `inspect_dxd`, which walks the entire
+file through this chunked path and retains only the final metadata summary.
+The full record is therefore validated without retaining all five channels in
+RAM.
+
+`read_ape_dxd` remains only as a compatibility helper for small files where a
+fully materialized `APEDXDData` object is genuinely wanted. Large production
+APE records should use the chunk iterator.
 
 ## Timing rule
 
-For a regular Dewesoft record, the downstream time coordinate is defined by
-the file start and Dewesoft's declared sampling rate, after the reader verifies
-that the selected-channel timestamp steps agree with that rate:
+For a regular Dewesoft record, Dewesoft's declared acquisition sample rate is
+authoritative only after the selected-channel timestamp steps have been checked
+against it. For the validated APE example this is exactly
 
 [
-t_n = t_0 + n/f_s .
+f_s = 20000.0 mathrm{Hz}.
 ]
 
-There is therefore no reason to retain another full time array for an ordinary
-uniform record. If Dewesoft declares a sample rate but the selected-channel
-timestamps are inconsistent with it, ingestion fails rather than silently
-choosing a different rate. If no authoritative declared rate is available and
-timing is irregular, the actual relative timestamps are preserved and
-`sample_rate_hz` is left unset.
+The downstream uniform time coordinate is therefore
+
+[
+t_n = t_0 + n/f_s.
+]
+
+The reader does not replace this metadata value with a frequency re-estimated
+from floating-point timestamp differences.
 
 ## Calibration configuration
 
 The same run YAML records four later calibration inputs:
 
 [
-C_{\mathrm{trans}},\quad q,\quad G,\quad H_2 .
+C_{\mathrm{trans}},quad q,quad G,quad H_2.
 ]
 
 They are run-specific configuration values, not universal APE constants.
 Stage 1 does **not** apply them.
 
-`second_harmonic_pd_response` is (H_2), the measured photodiode/electronics
-response at (2f). For example, (H_2=0.7) means that the readout chain
-retains about 70% of the relevant (2f) response, so the later calibration
-must account for that attenuation explicitly.
+`second_harmonic_pd_response` is (H_2), the measured
+photodiode/electronics response at (2f). For example, (H_2=0.7) means the
+readout chain retains about 70% of the relevant (2f) response, so later
+calibration must account for that attenuation explicitly.
 
-The exact RMS/peak convention and the equations producing (I_0(t)),
+The exact RMS/peak convention and equations producing (I_0(t)),
 (eta_0(t)), (ho_X(t)), and (ho_Y(t)) belong to the separately
-approved calibration stage, not to the reader.
+approved calibration stage, not to the raw reader.
