@@ -36,8 +36,12 @@ class APEDXDChunk:
     x_2f: np.ndarray
     y_2f: np.ndarray
     cavity_transmission: np.ndarray
+    channel_names: dict[str, str]
+    channel_units: dict[str, str]
     first_timestamp_s: float
     last_timestamp_s: float
+    start_time: datetime | None
+    metadata: dict[str, Any]
 
     def __post_init__(self) -> None:
         count = self.stop_index - self.start_index
@@ -55,14 +59,33 @@ class APEDXDChunk:
         if self.sample_rate_hz <= 0:
             raise ValueError("chunk sample rate must be positive")
 
+    @property
+    def n_samples(self) -> int:
+        return self.stop_index - self.start_index
+
+
+@dataclass(frozen=True)
+class APEDXDInspection:
+    """Result of validating a full .dxd file with bounded-memory streaming."""
+
+    source_file: Path
+    sample_rate_hz: float
+    n_samples: int
+    duration_s: float
+    start_time: datetime | None
+    channel_names: dict[str, str]
+    channel_units: dict[str, str]
+    chunk_size_samples: int
+    chunk_count: int
+    metadata: dict[str, Any]
+
 
 @dataclass(frozen=True)
 class APEDXDData:
-    """Legacy in-memory raw-data object.
+    """Legacy fully materialized raw-data object.
 
-    Kept for compatibility and small controlled inputs. Production ingestion
-    should prefer APEDXDMetadata + APEDXDChunk streaming so large .dxd files
-    are never retained in RAM as one giant object.
+    Kept for small controlled inputs and compatibility. Production ingestion
+    should prefer APEDXDInspection + APEDXDChunk streaming.
     """
 
     source_file: Path
