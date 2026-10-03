@@ -93,3 +93,23 @@ calibration must account for that attenuation explicitly.
 The exact RMS/peak convention and equations producing (I_0(t)),
 (eta_0(t)), (ho_X(t)), and (ho_Y(t)) belong to the separately
 approved calibration stage, not to the raw reader.
+
+
+## Streaming production reader
+
+Production-size Dewesoft files are validated in bounded chunks rather than
+loaded into one giant in-memory object. The default wrapper chunk size is
+1,000,000 samples per channel.
+
+For each chunk the reader verifies identical sample counts, synchronized
+timestamps across all five channels, and agreement with Dewesoft's declared
+sample rate. It also verifies continuity between the last timestamp of one
+chunk and the first timestamp of the next.
+
+Chunk boundaries are only a memory-management device. They do not remove,
+insert, resample, reorder, interpolate, or otherwise alter samples.
+
+`inspect_dxd` validates the complete file and returns metadata only.
+`iter_ape_dxd_chunks` yields validated raw chunks for later pipeline stages.
+The compatibility `read_ape_dxd` materializes all chunks and should not be
+used for production-size acquisitions.
