@@ -67,6 +67,13 @@ class DXDAssemblyTests(unittest.TestCase):
                 declared_sample_rate_hz=19900.0,
             )
 
+    def test_chunk_boundary_accepts_exact_next_sample(self):
+        _validate_chunk_boundary(0.04995, 0.05000, 20000.0)
+
+    def test_chunk_boundary_refuses_gap(self):
+        with self.assertRaisesRegex(DXDReaderError, "timestamp discontinuity"):
+            _validate_chunk_boundary(0.04995, 0.05010, 20000.0)
+
     def test_length_disagreement_is_refused_not_trimmed(self):
         arrays, timestamps, units, names = _inputs()
         arrays["y_1f"] = arrays["y_1f"][:-1]
