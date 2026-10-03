@@ -38,8 +38,10 @@ The reader never guesses these names.
 - selected-channel names and recorded units;
 - sample count;
 - start-store time reported by Dewesoft, without inventing a timezone;
-- sample rate when the selected timestamps are uniformly spaced;
-- explicit relative timestamps if spacing is irregular;
+- Dewesoft's declared sample rate after the selected-channel timestamps have
+  been verified against it;
+- explicit relative timestamps only when no authoritative declared rate is
+  available and spacing is irregular;
 - Dewesoft metadata used to audit the read.
 
 If selected channel lengths or timestamps disagree, ingestion fails. The reader
@@ -47,17 +49,20 @@ does not truncate, align, resample, or repair them.
 
 ## Timing rule
 
-For a regular record, the downstream time coordinate is defined by the file
-start and the measured selected-channel sampling rate:
+For a regular Dewesoft record, the downstream time coordinate is defined by
+the file start and Dewesoft's declared sampling rate, after the reader verifies
+that the selected-channel timestamp steps agree with that rate:
 
 [
 t_n = t_0 + n/f_s .
 ]
 
 There is therefore no reason to retain another full time array for an ordinary
-uniform record. If timing is not uniform, the actual relative timestamps are
-preserved and `sample_rate_hz` is left unset rather than pretending that the
-record is uniform.
+uniform record. If Dewesoft declares a sample rate but the selected-channel
+timestamps are inconsistent with it, ingestion fails rather than silently
+choosing a different rate. If no authoritative declared rate is available and
+timing is irregular, the actual relative timestamps are preserved and
+`sample_rate_hz` is left unset.
 
 ## Calibration configuration
 
