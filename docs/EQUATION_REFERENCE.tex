@@ -2,30 +2,68 @@
 \usepackage{amsmath}
 \begin{document}
 
-\section*{Approved staged APE cleaning}
+\section*{Approved reduced-block APE cleaning}
 
-Cleaning uses one-sided lower cuts against centered local medians.  Let
-$\widetilde{V}_{60}(t)$ be the 60 s local median constructed from 0.05 s
-cavity-transmission block medians.  The cavity mask is
+The synchronized raw channels are partitioned into non-overlapping 0.05 s
+records with physical midpoint times $t_k$.  For the cavity channel,
 \begin{equation}
-M_{\rm cav}(t)=
-\left[V_{\rm trans}(t)\ge0.90\,\widetilde{V}_{60}(t)\right].
+\bar V_k = \operatorname{mean}(V_{\rm trans}),
+\qquad
+V_{\min,k}=\min(V_{\rm trans}).
 \end{equation}
-Preliminary $\eta_0$ is computed only where $M_{\rm cav}$ is true.  Let
-$\widetilde{\eta}_{60}(t)$ be the 60 s local median constructed from 0.05 s
-$\eta_0$ block medians using cavity-good samples only.  Then
+The centered 60 s local cavity reference is the linearly interpolated 90th
+percentile of eligible block averages,
 \begin{equation}
-M_{\eta}(t)=
-M_{\rm cav}(t)\land
-\left[\eta_0(t)\ge0.90\,\widetilde{\eta}_{60}(t)\right],
+V_{{\rm ref},k}=
+Q_{0.90}\left(
+\{\bar V_j:\ |t_j-t_k|\le30\,{\rm s}\}
+\right),
 \end{equation}
-and
+and the cavity decision is
 \begin{equation}
-M_{\rm final}(t)=M_{\rm cav}(t)\land M_{\eta}(t).
+M_{{\rm cav},k}=
+\left[V_{\min,k}\ge0.90\,V_{{\rm ref},k}\right].
 \end{equation}
-There is no upper-side cut.  Bad samples retain their original indices and are
-never removed and concatenated across gaps.  Slow drift is intentionally
-preserved by the local reference.
+The reference is recomputed from provisionally good records three times, as in
+the earlier validated APE cavity-quality workflow.
+
+For each reduced record,
+\begin{equation}
+R_{2f,k}=\sqrt{\bar X_{2f,k}^{,2}+\bar Y_{2f,k}^{,2}},
+\qquad
+I_{0,k}=C_{\rm trans}\bar V_k,
+\end{equation}
+\begin{equation}
+\eta_{0,k}=
+\sqrt{
+\frac{2\sqrt{2}\,R_{2f,k}}
+{H_2qGI_{0,k}}
+}.
+\end{equation}
+Only cavity-good records are eligible to define the centered 60 s eta0
+reference,
+\begin{equation}
+\eta_{{\rm ref},k}=
+Q_{0.90}\left(
+\{\eta_{0,j}:\ |t_j-t_k|\le30\,{\rm s},
+\ M_{{\rm cav},j}=1\}
+\right).
+\end{equation}
+The eta0 decision is
+\begin{equation}
+M_{\eta,k}=
+M_{{\rm cav},k}\land
+\left[\eta_{0,k}\ge0.90\,\eta_{{\rm ref},k}\right],
+\end{equation}
+with the eta0 reference likewise recomputed from provisionally good records
+three times.  The final mask is
+\begin{equation}
+M_{{\rm final},k}=M_{{\rm cav},k}\land M_{\eta,k}.
+\end{equation}
+The historical fixed cut $\eta_0\ge0.019$ is not used in this approved path.
+Every raw sample inherits the quality state of its reduced record.  No
+interpolation, smoothing, fallback reference, gap filling, deletion, or
+concatenation across rejected records is performed.
 
 \section*{Approved APE raw-to-calibrated chunk conversion}
 
