@@ -18,8 +18,16 @@ def _positive_finite(name: str, value: float) -> float:
     return value
 
 
-def calibrate_chunk(chunk: APEDXDChunk, calibration: CalibrationConfig) -> APECalibratedChunk:
-    """Calibrate one synchronized raw chunk without smoothing or X/Y combination."""
+def calibrate_chunk(
+    chunk: APEDXDChunk,
+    calibration: CalibrationConfig,
+    input_valid_mask: np.ndarray | None = None,
+) -> APECalibratedChunk:
+    """Calibrate one synchronized raw chunk without smoothing or X/Y combination.
+
+    If input_valid_mask is supplied, only those samples are eligible for
+    calibration. All other samples preserve their indices and return NaN.
+    """
     c_trans = _positive_finite("cavity_transmission_w_per_v", calibration.cavity_transmission_w_per_v)
     q = _positive_finite("responsivity_a_per_w", calibration.responsivity_a_per_w)
     gain = _positive_finite("transimpedance_gain_v_per_a", calibration.transimpedance_gain_v_per_a)
@@ -34,8 +42,16 @@ def calibrate_chunk(chunk: APEDXDChunk, calibration: CalibrationConfig) -> APECa
     i0_w = c_trans * vtrans
     r2f = np.hypot(x2, y2)
 
+    if input_valid_mask is None:
+        input_mask = np.ones(chunk.n_samples, dtype=bool)
+    else:
+        input_mask = np.asarray(input_valid_mask, dtype=bool)
+        if input_mask.shape != (chunk.n_samples,):
+            raise CalibrationError("input_valid_mask must match the chunk length")
+
     valid = (
-        np.isfinite(x1)
+        input_mask
+        & np.isfinite(x1)
         & np.isfinite(y1)
         & np.isfinite(x2)
         & np.isfinite(y2)
@@ -87,6 +103,7 @@ def calibrate_chunk(chunk: APEDXDChunk, calibration: CalibrationConfig) -> APECa
         },
         "invalid_policy": "preserve index; calibrated outputs NaN; valid_mask false",
         "x_y_combined": False,
+        "input_valid_mask_supplied": input_valid_mask is not None,
     }
 
     return APECalibratedChunk(
