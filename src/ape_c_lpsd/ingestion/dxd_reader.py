@@ -13,11 +13,11 @@ from ctypes import byref, c_char_p, c_double, c_int, c_int64
 from datetime import datetime, timedelta
 import importlib.util
 from pathlib import Path
-from typing import Mapping
+from typing import Iterator, Mapping
 
 import numpy as np
 
-from .models import APEDXDData
+from .models import APEDXDChunk, APEDXDData, DXDInspection
 
 
 class DXDReaderError(RuntimeError):
@@ -31,6 +31,8 @@ _REQUIRED_KEYS = (
     "y_2f",
     "cavity_transmission",
 )
+
+_DEFAULT_CHUNK_SAMPLES = 1_000_000
 
 
 def _decode_c_string(value) -> str:
@@ -172,6 +174,277 @@ def _assemble_ape_data(
         regular_sampling=regular_sampling,
         relative_timestamps_s=relative_timestamps_s,
         metadata=dict(metadata),
+    )
+
+
+
+def _validate_channel_mapping(channel_names: Mapping[str, str]) -> list[str]:
+    keys = set(channel_names)
+    missing = [key for key in _REQUIRED_KEYS if key not in keys]
+    extra = sorted(keys.difference(_REQUIRED_KEYS))
+    if missing or extra:
+        raise DXDReaderError(
+            f"channel mapping must contain exactly {_REQUIRED_KEYS}; missing={missing}, extra={extra}"
+        )
+    requested_names = [str(channel_names[key]) for key in _REQUIRED_KEYS]
+    if len(set(requested_names)) != len(requested_names):
+        raise DXDReaderError("the five APE roles must map to five distinct Dewesoft channels")
+    return requested_names
+
+
+def iter_ape_dxd_chunks(
+    input_file: str | Path,
+    *,
+    channel_names: Mapping[str, str],
+    wrapper_path: str | Path,
+    library_path: str | Path,
+    chunk_samples: int = _DEFAULT_CHUNK_SAMPLES,
+) -> Iterator[APEDXDChunk]:
+    """Yield synchronized raw chunks without retaining the full recording in RAM."""
+    if chunk_samples <= 1:
+        raise DXDReaderError("chunk_samples must be greater than 1")
+
+    source = Path(input_file).expanduser().resolve()
+    if not source.is_file():
+        raise DXDReaderError(f"input .dxd file not found: {source}")
+    if source.suffix.lower() != ".dxd":
+        raise DXDReaderError(f"expected a .dxd input file, got: {source.name}")
+
+    requested_names = _validate_channel_mapping(channel_names)
+    header = _load_header(wrapper_path)
+    library = Path(library_path).expanduser().resolve()
+    if not library.is_file():
+        raise DXDReaderError(f"Dewesoft native library not found: {library}")
+
+    import ctypes
+
+    dll = ctypes.cdll.LoadLibrary(str(library))
+    initialized = False
+    opened = False
+    try:
+        if int(dll.DWInit()) != 0:
+            raise DXDReaderError("Dewesoft DWInit() failed")
+        initialized = True
+        if int(dll.DWAddReader()) != 0:
+            raise DXDReaderError("Dewesoft DWAddReader() failed")
+
+        file_info = header.DWFileInfo(0, 0, 0)
+        if int(dll.DWOpenDataFile(c_char_p(str(source).encode()), byref(file_info))) != 0:
+            raise DXDReaderError(f"Dewesoft could not open: {source}")
+        opened = True
+
+        declared_rate = float(file_info.sample_rate)
+        if not np.isfinite(declared_rate) or declared_rate <= 0:
+            raise DXDReaderError(f"invalid Dewesoft declared sample rate: {declared_rate}")
+
+        channel_count = int(dll.DWGetChannelListCount())
+        if channel_count < 0:
+            raise DXDReaderError("Dewesoft DWGetChannelListCount() failed")
+        channel_list = (header.DWChannel * channel_count)()
+        if int(dll.DWGetChannelList(byref(channel_list))) != 0:
+            raise DXDReaderError("Dewesoft DWGetChannelList() failed")
+
+        by_name: dict[str, object] = {}
+        duplicates: set[str] = set()
+        for channel in channel_list:
+            name = _decode_c_string(channel.name)
+            if name in by_name:
+                duplicates.add(name)
+            by_name[name] = channel
+
+        requested_duplicates = sorted(set(requested_names).intersection(duplicates))
+        if requested_duplicates:
+            raise DXDReaderError(
+                f"requested Dewesoft channel names are duplicated in the file: {requested_duplicates}"
+            )
+        absent = [name for name in requested_names if name not in by_name]
+        if absent:
+            raise DXDReaderError(
+                f"requested Dewesoft channels are absent: {absent}; "
+                f"available channels={sorted(by_name)}"
+            )
+
+        channel_indices: dict[str, c_int] = {}
+        channel_units: dict[str, str] = {}
+        counts: dict[str, int] = {}
+        for role in _REQUIRED_KEYS:
+            recorded_name = str(channel_names[role])
+            channel = by_name[recorded_name]
+            if int(channel.array_size) != 1:
+                raise DXDReaderError(
+                    f"{recorded_name} has array_size={channel.array_size}; only scalar channels are supported"
+                )
+            index = c_int(int(channel.index))
+            count = int(dll.DWGetScaledSamplesCount(index))
+            if count <= 0:
+                raise DXDReaderError(
+                    f"invalid sample count for {recorded_name}: {count}"
+                )
+            channel_indices[role] = index
+            channel_units[role] = _decode_c_string(channel.unit)
+            counts[role] = count
+
+        if len(set(counts.values())) != 1:
+            raise DXDReaderError(f"selected channel lengths disagree: {counts}")
+        total_count = next(iter(counts.values()))
+
+        previous_last_timestamp: float | None = None
+        expected_step = 1.0 / declared_rate
+        boundary_tolerance = max(1e-12, abs(expected_step) * 1e-6)
+
+        for raw_start in range(0, total_count, chunk_samples):
+            raw_stop = min(raw_start + chunk_samples, total_count)
+            count = raw_stop - raw_start
+            arrays: dict[str, np.ndarray] = {}
+            reference_timestamps: np.ndarray | None = None
+
+            for role in _REQUIRED_KEYS:
+                data_buffer = (c_double * count)()
+                time_buffer = (c_double * count)()
+                status = int(
+                    dll.DWGetScaledSamples(
+                        channel_indices[role],
+                        c_int64(raw_start),
+                        count,
+                        data_buffer,
+                        time_buffer,
+                    )
+                )
+                if status != 0:
+                    raise DXDReaderError(
+                        f"DWGetScaledSamples() failed for {channel_names[role]} "
+                        f"at raw samples [{raw_start}, {raw_stop})"
+                    )
+
+                values = np.ctypeslib.as_array(data_buffer).copy()
+                times = np.ctypeslib.as_array(time_buffer).copy()
+                if not np.all(np.isfinite(values)):
+                    raise DXDReaderError(
+                        f"{role} contains non-finite raw samples in "
+                        f"[{raw_start}, {raw_stop})"
+                    )
+                if not np.all(np.isfinite(times)):
+                    raise DXDReaderError(
+                        f"{role} contains non-finite timestamps in "
+                        f"[{raw_start}, {raw_stop})"
+                    )
+
+                if reference_timestamps is None:
+                    reference_timestamps = times
+                elif not np.allclose(times, reference_timestamps, rtol=0.0, atol=1e-9):
+                    raise DXDReaderError(
+                        f"selected channels are not synchronized in "
+                        f"[{raw_start}, {raw_stop})"
+                    )
+                arrays[role] = values
+
+            assert reference_timestamps is not None
+            if not _timestamps_match_declared_rate(reference_timestamps, declared_rate):
+                raise DXDReaderError(
+                    "selected-channel timestamps are inconsistent with the Dewesoft "
+                    f"declared sample rate {declared_rate} Hz in "
+                    f"[{raw_start}, {raw_stop})"
+                )
+
+            first_timestamp = float(reference_timestamps[0])
+            last_timestamp = float(reference_timestamps[-1])
+            if previous_last_timestamp is not None:
+                observed_boundary_step = first_timestamp - previous_last_timestamp
+                if not np.isclose(
+                    observed_boundary_step,
+                    expected_step,
+                    rtol=0.0,
+                    atol=boundary_tolerance,
+                ):
+                    raise DXDReaderError(
+                        "timestamp discontinuity between chunks at raw sample "
+                        f"{raw_start}: observed step={observed_boundary_step}, "
+                        f"expected={expected_step}"
+                    )
+            previous_last_timestamp = last_timestamp
+
+            yield APEDXDChunk(
+                source_file=source,
+                raw_start=raw_start,
+                raw_stop=raw_stop,
+                sample_rate_hz=declared_rate,
+                x_1f=arrays["x_1f"],
+                y_1f=arrays["y_1f"],
+                x_2f=arrays["x_2f"],
+                y_2f=arrays["y_2f"],
+                cavity_transmission=arrays["cavity_transmission"],
+                channel_names={key: str(channel_names[key]) for key in _REQUIRED_KEYS},
+                channel_units=dict(channel_units),
+                first_timestamp_s=first_timestamp,
+                last_timestamp_s=last_timestamp,
+            )
+    finally:
+        if opened:
+            close_status = int(dll.DWCloseDataFile())
+            if close_status != 0:
+                raise DXDReaderError("Dewesoft DWCloseDataFile() failed")
+        if initialized:
+            deinit_status = int(dll.DWDeInit())
+            if deinit_status != 0:
+                raise DXDReaderError("Dewesoft DWDeInit() failed")
+
+
+def inspect_ape_dxd(
+    input_file: str | Path,
+    *,
+    channel_names: Mapping[str, str],
+    wrapper_path: str | Path,
+    library_path: str | Path,
+    chunk_samples: int = _DEFAULT_CHUNK_SAMPLES,
+) -> DXDInspection:
+    """Validate an entire .dxd file while retaining only one chunk at a time."""
+    source = Path(input_file).expanduser().resolve()
+    total = 0
+    chunk_count = 0
+    sample_rate_hz: float | None = None
+    units: dict[str, str] | None = None
+    first_timestamp_s: float | None = None
+    last_timestamp_s: float | None = None
+
+    for chunk in iter_ape_dxd_chunks(
+        source,
+        channel_names=channel_names,
+        wrapper_path=wrapper_path,
+        library_path=library_path,
+        chunk_samples=chunk_samples,
+    ):
+        if chunk_count == 0:
+            sample_rate_hz = chunk.sample_rate_hz
+            units = dict(chunk.channel_units)
+            first_timestamp_s = chunk.first_timestamp_s
+        total += chunk.raw_stop - chunk.raw_start
+        chunk_count += 1
+        last_timestamp_s = chunk.last_timestamp_s
+
+    if chunk_count == 0 or sample_rate_hz is None or units is None:
+        raise DXDReaderError("Dewesoft file produced no chunks")
+
+    duration_s = total / sample_rate_hz
+    start_time = None
+    # Read only file-level metadata through the first chunk's validated source.
+    # The public inspection contract reports duration from N/fs so it is tied
+    # to the exact selected-channel sample count.
+    return DXDInspection(
+        source_file=source,
+        sample_rate_hz=sample_rate_hz,
+        n_samples=total,
+        duration_s=duration_s,
+        start_time=start_time,
+        channel_names={key: str(channel_names[key]) for key in _REQUIRED_KEYS},
+        channel_units=units,
+        chunk_count=chunk_count,
+        chunk_samples=chunk_samples,
+        metadata={
+            "reader": "DWDataReader",
+            "first_selected_timestamp_s": first_timestamp_s,
+            "last_selected_timestamp_s": last_timestamp_s,
+            "full_record_retained_in_memory": False,
+        },
     )
 
 
