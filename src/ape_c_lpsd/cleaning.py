@@ -202,30 +202,48 @@ def build_cleaning_reference_plan(
     Only block medians/references are retained for the complete record. Raw
     science channels remain chunked.
     """
-    first_pass_chunks = list(chunk_factory())
-    if not first_pass_chunks:
+    cavity_block_parts: list[np.ndarray] = []
+    fs: float | None = None
+    block_samples: int | None = None
+    expected_start = 0
+    saw_chunk = False
+
+    for chunk in chunk_factory():
+        saw_chunk = True
+        if fs is None:
+            fs = chunk.sample_rate_hz
+            block_samples = _samples_per_block(fs, cleaning.block_size_seconds)
+        if chunk.sample_rate_hz != fs:
+            raise CleaningError("sample rate changes across cleaning chunks")
+        if chunk.start_index != expected_start:
+            raise CleaningError("cleaning chunks must be contiguous and ordered")
+        if chunk.start_index % block_samples != 0:
+            raise CleaningError(
+                "production cleaning requires chunk starts aligned to cleaning blocks"
+            )
+        if chunk.stop_index < chunk.start_index:
+            raise CleaningError("invalid chunk interval")
+        if chunk.stop_index != chunk.start_index + chunk.n_samples:
+            raise CleaningError("chunk interval and sample count disagree")
+        cavity_block_parts.append(
+            _block_medians(
+                np.asarray(chunk.cavity_transmission, dtype=np.float64),
+                block_samples,
+            )
+        )
+        expected_start = chunk.stop_index
+
+    if not saw_chunk or fs is None or block_samples is None:
         raise CleaningError("no chunks supplied by chunk_factory")
-    fs = first_pass_chunks[0].sample_rate_hz
-    block_samples = _samples_per_block(fs, cleaning.block_size_seconds)
-    fs, total_samples = _validate_chunk_sequence(first_pass_chunks, block_samples)
+    total_samples = expected_start
 
     window_blocks_float = cleaning.reference_window_seconds / cleaning.block_size_seconds
     window_blocks = int(round(window_blocks_float))
     if not np.isclose(window_blocks, window_blocks_float, rtol=0.0, atol=1e-12):
         raise CleaningError("reference_window_seconds must be an integer number of blocks")
 
-    cavity_block_parts = [
-        _block_medians(
-            np.asarray(chunk.cavity_transmission, dtype=np.float64),
-            block_samples,
-        )
-        for chunk in first_pass_chunks
-    ]
     cavity_blocks = np.concatenate(cavity_block_parts)
     cavity_reference_blocks = _rolling_block_median(cavity_blocks, window_blocks)
-
-    # Release first-pass raw chunks before the eta0 pass.
-    del first_pass_chunks
 
     eta_block_parts: list[np.ndarray] = []
     expected_start = 0
