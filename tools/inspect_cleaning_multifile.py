@@ -70,11 +70,18 @@ def main() -> None:
     file_offsets: dict[Path, int] = {}
     file_sample_counts: dict[Path, int] = {}
     expected_sample_rate: float | None = None
+    progress_phase = "Reading"
 
     def chunk_factory():
         nonlocal expected_sample_rate
         global_offset = 0
-        for source in files:
+        for file_number, source in enumerate(files, start=1):
+            print(
+                f"{progress_phase}: file {file_number}/{len(files)} "
+                f"({source.name})",
+                file=sys.stderr,
+                flush=True,
+            )
             file_offsets.setdefault(source, global_offset)
             local_expected_start = 0
             file_count = 0
@@ -114,10 +121,21 @@ def main() -> None:
                 )
             global_offset += file_count
 
+    print(
+        f"Found {len(files)} continuous files. Building reduced-block cleaning references...",
+        file=sys.stderr,
+        flush=True,
+    )
+    progress_phase = "Reference pass"
     plan = build_cleaning_reference_plan(
         chunk_factory,
         config.cleaning,
         config.calibration,
+    )
+    print(
+        "Reference pass complete. Inspecting final masks and intervals...",
+        file=sys.stderr,
+        flush=True,
     )
 
     total = 0
@@ -130,6 +148,7 @@ def main() -> None:
     final_good_runs = _IntervalAccumulator(target_value=True)
     per_file: dict[str, dict[str, int | float]] = {}
 
+    progress_phase = "Inspection pass"
     for chunk in chunk_factory():
         result = clean_chunk_with_plan(
             chunk,
@@ -200,6 +219,12 @@ def main() -> None:
         if index == total:
             return files[-1].name
         return None
+
+    print(
+        "Inspection complete. Writing JSON summary...",
+        file=sys.stderr,
+        flush=True,
+    )
 
     summary = {
         "continuity_assumption": (
