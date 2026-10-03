@@ -1,38 +1,74 @@
 \documentclass{article}
 \usepackage{amsmath}
 \begin{document}
+
+\section*{Approved APE raw-to-calibrated chunk conversion}
+
+The recorded demodulated quadratures are treated as RMS voltages. For each
+validated raw sample,
+\begin{equation}
+I_0 = C_{\mathrm{trans}} V_{\mathrm{trans}},
+\end{equation}
+\begin{equation}
+R_{2f}=\sqrt{X_{2f}^2+Y_{2f}^2},
+\end{equation}
+\begin{equation}
+\eta_0 =
+\sqrt{
+\frac{2\sqrt{2}\,R_{2f}}
+{H_2 q G I_0}
+},
+\end{equation}
+\begin{equation}
+\rho_X =
+\frac{X_{1f}}
+{\sqrt{2}\,qGI_0\eta_0},
+\qquad
+\rho_Y =
+\frac{Y_{1f}}
+{\sqrt{2}\,qGI_0\eta_0}.
+\end{equation}
+Here $H_2$ is the measured photodiode/electronics response at $2f$.
+The science quadratures remain separate. Invalid physical samples preserve
+their original indices and calibrated outputs are set to NaN. This stage
+performs no smoothing, filtering, interpolation, resampling, clipping, phase
+correction, gain-imbalance correction, leakage correction, or X/Y combination.
+
 \section*{Approved C-LPSD bridge}
-For a selected uninterrupted segment of $N$ samples at rate $f_s$, the diagnostic
-one-cycle frequency is $f_{1/T}=f_s/N$. The C feasibility lower limit is
-\begin{equation} f_{\min}^{\rm C}=\frac{\mathrm{SBIN}}{T}
-\left[1+(1-O/100)(m-1)\right],\qquad f_{\max}<f_s/2,\qquad
-J_{\rm des}=\left\lceil\frac{\log(N/2)}{\log(1+1/Q)}\right\rceil,\quad Q=10^6.\end{equation}
+For a selected uninterrupted segment of $N$ samples at rate $f_s$, the
+diagnostic one-cycle frequency is $f_{1/T}=f_s/N$. The C feasibility lower
+limit is
+\begin{equation}
+f_{\min}^{\rm C}=\frac{\mathrm{SBIN}}{T}
+\left[1+(1-O/100)(m-1)\right],
+\qquad
+f_{\max}<f_s/2,
+\qquad
+J_{\rm des}=\left\lceil
+\frac{\log(N/2)}{\log(1+1/Q)}
+\right\rceil,
+\quad Q=10^6.
+\end{equation}
 The C executable is invoked in LPSD mode with Kaiser window $-w\,-2$, PSLL
 200 dB, 50\% overlap, linear-regression detrending ($-r\,1$), desired averages
-100, and minimum averages 1. It reports a one-sided PSD $S_x(f)$ directly;
-the bridge applies no scale beyond $-x\,1$ and defines $\mathrm{ASD}_x=\sqrt{S_x}$.
-For the approved $m=1$, $f_{\min}^{\rm C}=\mathrm{SBIN}/T$. SBIN is queried
-from the actual configured C executable, never hard-coded. This is a window
-feasibility limit, not a data-quality cut. For input unit $U$, $[S_x]=U^2/\mathrm{Hz}$ and $[\mathrm{ASD}_x]=U/\sqrt{\mathrm{Hz}}$.
+100, and minimum averages 1. It reports a one-sided PSD $S_x(f)$ directly; the
+bridge applies no scale beyond $-x\,1$ and defines
+$\mathrm{ASD}_x=\sqrt{S_x}$. For the approved $m=1$,
+$f_{\min}^{\rm C}=\mathrm{SBIN}/T$. SBIN is queried from the actual
+configured C executable, never hard-coded. This is a window feasibility limit,
+not a data-quality cut. For input unit $U$, $[S_x]=U^2/\mathrm{Hz}$ and
+$[\mathrm{ASD}_x]=U/\sqrt{\mathrm{Hz}}$.
 
-\section*{Approved calibrated quadrature review}
-For raw index $n$, the unchanged reference reduced-record mapping is
-$p(n)=\lfloor n/1000floor$.  With the frozen reference parameters,
-egin{equation}
- D[n]=\sqrt{2}\,I_0[p(n)]\,\eta_0[p(n)]\,R\,G,
- \quad X_{m ell}[n]=X_V[n]/D[n],\quad Y_{m ell}[n]=Y_V[n]/D[n].
+\section*{Legacy calibrated quadrature review}
+The older review-only path uses a frozen reference denominator
+\begin{equation}
+D[n]=\sqrt{2}\,I_0[p(n)]\,\eta_0[p(n)]\,R\,G,
+\qquad
+X_{\rm ell}[n]=X_V[n]/D[n],
+\qquad
+Y_{\rm ell}[n]=Y_V[n]/D[n].
 \end{equation}
-The review stage produces each quadrature separately only where the existing
-sample-good and calibration-valid conditions pass; rejected locations remain
-gaps.  It introduces no phase, gain-imbalance, leakage, interpolation, or
-X/Y-combination correction.  $[D]={m V}$ and the quadrature ellipticities
-are dimensionless.  For valid samples,
-$\sqrt{X_{m ell}^2+Y_{m ell}^2}$ is checked against the frozen reference
-nonnegative $ho$ calculation at float64 round-off tolerance.
-\end{document}
+This legacy path is retained for historical cross-checks and is not the
+authoritative implementation of the new raw-to-calibrated streaming stage.
 
-% Future FFT extension (method identity fft_full_record; not C-LPSD equivalent).
-% For a full record x[n] in V and explicit window w[n], the planned one-sided
-% density convention is |RFFT{xw}|^2/(f_s sum_n w[n]^2), doubled only for
-% strictly interior positive-frequency bins. Thus [PSD]=V^2/Hz and
-% [ASD]=V/sqrt(Hz). Numerical C-Kaiser equivalence remains to be validated.
+\end{document}
