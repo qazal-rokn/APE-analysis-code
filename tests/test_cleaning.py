@@ -3,7 +3,11 @@ from pathlib import Path
 import unittest
 import numpy as np
 
-from ape_c_lpsd.cleaning import clean_chunk
+from ape_c_lpsd.cleaning import (
+    build_cleaning_reference_plan,
+    clean_chunk,
+    clean_chunk_with_plan,
+)
 from ape_c_lpsd.calibration import calibrate_chunk
 from ape_c_lpsd.ingestion.config import CalibrationConfig, CleaningConfig
 from ape_c_lpsd.ingestion.models import APEDXDChunk
@@ -72,6 +76,49 @@ class CleaningTests(unittest.TestCase):
         safe[cavity_glitch] = False
         safe[eta_glitch] = False
         self.assertGreater(np.mean(result.final_good[safe]), 0.999)
+
+    def test_full_record_reference_plan_crosses_chunk_boundaries(self):
+        whole, cavity_glitch, eta_glitch = self._chunk()
+
+        # 20 s chunks, deliberately the same size as the reference window.
+        # The reference plan must therefore use neighboring chunks rather than
+        # treating each chunk as an isolated record.
+        chunk_samples = 2000
+
+        def factory():
+            for start in range(0, whole.n_samples, chunk_samples):
+                stop = min(whole.n_samples, start + chunk_samples)
+                yield APEDXDChunk(
+                    source_file=whole.source_file,
+                    start_index=start,
+                    stop_index=stop,
+                    sample_rate_hz=whole.sample_rate_hz,
+                    x_1f=whole.x_1f[start:stop],
+                    y_1f=whole.y_1f[start:stop],
+                    x_2f=whole.x_2f[start:stop],
+                    y_2f=whole.y_2f[start:stop],
+                    cavity_transmission=whole.cavity_transmission[start:stop],
+                    first_timestamp_s=start / whole.sample_rate_hz,
+                    last_timestamp_s=(stop - 1) / whole.sample_rate_hz,
+                )
+
+        plan = build_cleaning_reference_plan(
+            factory, self.cleaning, self.calibration
+        )
+        masks = []
+        for chunk in factory():
+            result = clean_chunk_with_plan(
+                chunk, plan, self.cleaning, self.calibration
+            )
+            masks.append(result.final_good)
+        final_good = np.concatenate(masks)
+
+        self.assertFalse(np.any(final_good[cavity_glitch]))
+        self.assertFalse(np.any(final_good[eta_glitch]))
+        safe = np.ones(whole.n_samples, dtype=bool)
+        safe[cavity_glitch] = False
+        safe[eta_glitch] = False
+        self.assertGreater(np.mean(final_good[safe]), 0.999)
 
     def test_full_calibration_is_gated_by_final_cleaning_mask(self):
         chunk, cavity_glitch, eta_glitch = self._chunk()
