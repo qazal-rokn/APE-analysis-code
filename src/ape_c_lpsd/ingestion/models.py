@@ -51,6 +51,57 @@ class APEDXDData:
             raise ValueError("irregular sampling requires preserved timestamps")
 
 
+
+@dataclass(frozen=True)
+class APEDXDChunk:
+    """One synchronized raw chunk from the canonical five-channel reader."""
+
+    source_file: Path
+    raw_start: int
+    raw_stop: int
+    sample_rate_hz: float
+    x_1f: np.ndarray
+    y_1f: np.ndarray
+    x_2f: np.ndarray
+    y_2f: np.ndarray
+    cavity_transmission: np.ndarray
+    channel_names: dict[str, str]
+    channel_units: dict[str, str]
+    first_timestamp_s: float
+    last_timestamp_s: float
+
+    def __post_init__(self) -> None:
+        if self.raw_start < 0 or self.raw_stop <= self.raw_start:
+            raise ValueError("invalid raw chunk interval")
+        count = self.raw_stop - self.raw_start
+        arrays = (
+            self.x_1f,
+            self.y_1f,
+            self.x_2f,
+            self.y_2f,
+            self.cavity_transmission,
+        )
+        if any(np.asarray(values).shape != (count,) for values in arrays):
+            raise ValueError("all five chunk channels must match the chunk interval")
+        if self.sample_rate_hz <= 0:
+            raise ValueError("chunk sample_rate_hz must be positive")
+
+
+@dataclass(frozen=True)
+class DXDInspection:
+    """Lightweight result of validating an entire .dxd file chunk by chunk."""
+
+    source_file: Path
+    sample_rate_hz: float
+    n_samples: int
+    duration_s: float
+    start_time: datetime | None
+    channel_names: dict[str, str]
+    channel_units: dict[str, str]
+    chunk_count: int
+    chunk_samples: int
+    metadata: dict[str, Any]
+
 @dataclass(frozen=True)
 class OrderedSource:
     path: Path
