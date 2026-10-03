@@ -237,6 +237,8 @@ def read_ape_dxd(
             count = int(dll.DWGetScaledSamplesCount(channel_index))
             if count < 0:
                 raise DXDReaderError(f"DWGetScaledSamplesCount() failed for {recorded_name}")
+            if count == 0:
+                raise DXDReaderError(f"{recorded_name} contains no samples")
 
             data_buffer = (c_double * count)()
             time_buffer = (c_double * count)()
