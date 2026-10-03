@@ -1,0 +1,181 @@
+"""Approved staged APE cleaning.
+
+Stage 1: cavity transmission one-sided lower cut against a local median.
+Stage 2: eta0 one-sided lower cut against a local median, evaluated only on
+cavity-good samples.
+
+Local references are formed from short block medians and then a centered
+rolling median across those blocks. Raw sample indices are always preserved.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+import numpy as np
+
+from .ingestion.config import CalibrationConfig, CleaningConfig
+from .ingestion.models import APEDXDChunk
+
+
+class CleaningError(ValueError):
+    pass
+
+
+@dataclass(frozen=True)
+class APECleaningResult:
+    cavity_good: np.ndarray
+    eta0_preliminary: np.ndarray
+    eta_good: np.ndarray
+    final_good: np.ndarray
+    cavity_reference: np.ndarray
+    eta0_reference: np.ndarray
+    metadata: dict[str, object]
+
+
+def _samples_per_block(sample_rate_hz: float, block_size_seconds: float) -> int:
+    value = int(round(sample_rate_hz * block_size_seconds))
+    if value <= 0:
+        raise CleaningError("cleaning block must contain at least one sample")
+    if not np.isclose(value / sample_rate_hz, block_size_seconds, rtol=0.0, atol=1e-12):
+        raise CleaningError("block_size_seconds must map to an integer sample count")
+    return value
+
+
+def _block_medians(values: np.ndarray, block_samples: int, valid: np.ndarray | None = None) -> np.ndarray:
+    n = values.size
+    n_blocks = (n + block_samples - 1) // block_samples
+    out = np.full(n_blocks, np.nan, dtype=np.float64)
+    for b in range(n_blocks):
+        start = b * block_samples
+        stop = min(n, start + block_samples)
+        block = values[start:stop]
+        if valid is not None:
+            block = block[valid[start:stop]]
+        block = block[np.isfinite(block)]
+        if block.size:
+            out[b] = float(np.median(block))
+    return out
+
+
+def _rolling_block_median(block_values: np.ndarray, window_blocks: int) -> np.ndarray:
+    if window_blocks <= 0:
+        raise CleaningError("reference window must contain at least one block")
+    n = block_values.size
+    refs = np.full(n, np.nan, dtype=np.float64)
+    half_left = (window_blocks - 1) // 2
+    half_right = window_blocks // 2
+    for i in range(n):
+        lo = max(0, i - half_left)
+        hi = min(n, i + half_right + 1)
+        window = block_values[lo:hi]
+        window = window[np.isfinite(window)]
+        if window.size:
+            refs[i] = float(np.median(window))
+    return refs
+
+
+def _expand_block_values(block_values: np.ndarray, n_samples: int, block_samples: int) -> np.ndarray:
+    return np.repeat(block_values, block_samples)[:n_samples]
+
+
+def _eta0_on_mask(
+    chunk: APEDXDChunk,
+    calibration: CalibrationConfig,
+    mask: np.ndarray,
+) -> np.ndarray:
+    c_trans = float(calibration.cavity_transmission_w_per_v)
+    q = float(calibration.responsivity_a_per_w)
+    gain = float(calibration.transimpedance_gain_v_per_a)
+    h2 = float(calibration.second_harmonic_pd_response)
+    for name, value in {
+        "cavity_transmission_w_per_v": c_trans,
+        "responsivity_a_per_w": q,
+        "transimpedance_gain_v_per_a": gain,
+        "second_harmonic_pd_response": h2,
+    }.items():
+        if not np.isfinite(value) or value <= 0:
+            raise CleaningError(f"{name} must be positive and finite")
+
+    i0 = c_trans * np.asarray(chunk.cavity_transmission, dtype=np.float64)
+    r2f = np.hypot(
+        np.asarray(chunk.x_2f, dtype=np.float64),
+        np.asarray(chunk.y_2f, dtype=np.float64),
+    )
+    valid = (
+        np.asarray(mask, dtype=bool)
+        & np.isfinite(i0)
+        & np.isfinite(r2f)
+        & (i0 > 0.0)
+        & (r2f > 0.0)
+    )
+    eta0 = np.full(chunk.n_samples, np.nan, dtype=np.float64)
+    arg = np.full(chunk.n_samples, np.nan, dtype=np.float64)
+    arg[valid] = 2.0 * np.sqrt(2.0) * r2f[valid] / (h2 * q * gain * i0[valid])
+    valid &= np.isfinite(arg) & (arg > 0.0)
+    eta0[valid] = np.sqrt(arg[valid])
+    return eta0
+
+
+def clean_chunk(
+    chunk: APEDXDChunk,
+    cleaning: CleaningConfig,
+    calibration: CalibrationConfig,
+) -> APECleaningResult:
+    """Apply the approved cavity-first, eta0-second cleaning to one chunk."""
+    if not (0.0 < cleaning.cavity_lower_fraction <= 1.0):
+        raise CleaningError("cavity_lower_fraction must be in (0, 1]")
+    if not (0.0 < cleaning.eta0_lower_fraction <= 1.0):
+        raise CleaningError("eta0_lower_fraction must be in (0, 1]")
+
+    block_samples = _samples_per_block(chunk.sample_rate_hz, cleaning.block_size_seconds)
+    window_blocks_float = cleaning.reference_window_seconds / cleaning.block_size_seconds
+    window_blocks = int(round(window_blocks_float))
+    if not np.isclose(window_blocks, window_blocks_float, rtol=0.0, atol=1e-12):
+        raise CleaningError("reference_window_seconds must be an integer number of blocks")
+
+    vtrans = np.asarray(chunk.cavity_transmission, dtype=np.float64)
+    cavity_blocks = _block_medians(vtrans, block_samples)
+    cavity_ref_blocks = _rolling_block_median(cavity_blocks, window_blocks)
+    cavity_reference = _expand_block_values(cavity_ref_blocks, chunk.n_samples, block_samples)
+
+    cavity_good = (
+        np.isfinite(vtrans)
+        & np.isfinite(cavity_reference)
+        & (cavity_reference > 0.0)
+        & (vtrans >= cleaning.cavity_lower_fraction * cavity_reference)
+    )
+
+    eta0 = _eta0_on_mask(chunk, calibration, cavity_good)
+    eta_blocks = _block_medians(eta0, block_samples, valid=cavity_good)
+    eta_ref_blocks = _rolling_block_median(eta_blocks, window_blocks)
+    eta0_reference = _expand_block_values(eta_ref_blocks, chunk.n_samples, block_samples)
+
+    eta_good = (
+        cavity_good
+        & np.isfinite(eta0)
+        & np.isfinite(eta0_reference)
+        & (eta0_reference > 0.0)
+        & (eta0 >= cleaning.eta0_lower_fraction * eta0_reference)
+    )
+    final_good = cavity_good & eta_good
+
+    metadata = {
+        "method": "ape_local_median_two_stage_cleaning_v1",
+        "block_size_seconds": float(cleaning.block_size_seconds),
+        "reference_window_seconds": float(cleaning.reference_window_seconds),
+        "cavity_lower_fraction": float(cleaning.cavity_lower_fraction),
+        "eta0_lower_fraction": float(cleaning.eta0_lower_fraction),
+        "one_sided_lower_cuts_only": True,
+        "slow_drift_preserved_by_local_reference": True,
+        "indices_preserved": True,
+        "rho_not_computed_during_cleaning": True,
+    }
+
+    return APECleaningResult(
+        cavity_good=cavity_good,
+        eta0_preliminary=eta0,
+        eta_good=eta_good,
+        final_good=final_good,
+        cavity_reference=cavity_reference,
+        eta0_reference=eta0_reference,
+        metadata=metadata,
+    )
