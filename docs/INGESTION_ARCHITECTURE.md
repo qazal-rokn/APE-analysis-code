@@ -29,8 +29,30 @@ For uniformly sampled synchronized channels, the object stores (t_0),
 irregular, the actual relative timestamps are retained and no fake uniform
 sample rate is assigned.
 
-The next separately approved stage will consume `APEDXDData` and apply the
-explicit run calibration. That stage is not implemented by the raw reader.
+The approved downstream order is now:
+
+```text
+validated raw DXD chunks
+        |
+        v
+cavity local-median lower cut
+        |
+        v
+preliminary I0 and eta0 on cavity-good samples
+        |
+        v
+eta0 local-median lower cut
+        |
+        v
+final good mask
+        |
+        v
+full rho_X / rho_Y calibration only on final-good samples
+```
+
+The cleaning references are constructed across the full record at 0.05 s block
+resolution so 60 s local-median windows do not reset at raw chunk boundaries.
+Raw science data remain bounded-memory and chunked.
 
 ## Legacy/reference ingestion and segment selection
 
