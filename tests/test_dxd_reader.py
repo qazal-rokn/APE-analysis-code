@@ -9,9 +9,9 @@ import numpy as np
 from ape_c_lpsd.ingestion.dxd_reader import (
     DXDReaderError,
     _assemble_ape_data,
-    _validate_chunk_arrays,
-    _validate_chunk_boundary,
+    _validate_declared_rate,
 )
+from ape_c_lpsd.ingestion.models import APEDXDChunk
 
 
 def _inputs(n: int = 1000, fs: float = 20000.0):
@@ -36,7 +36,7 @@ def _inputs(n: int = 1000, fs: float = 20000.0):
 
 
 class DXDAssemblyTests(unittest.TestCase):
-    def test_uniform_synchronized_channels_use_declared_rate(self):
+    def test_uniform_synchronized_channels_keep_no_redundant_time_array(self):
         arrays, timestamps, units, names = _inputs()
         data = _assemble_ape_data(
             source_file=Path("synthetic.dxd"),
@@ -52,10 +52,13 @@ class DXDAssemblyTests(unittest.TestCase):
         self.assertTrue(data.regular_sampling)
         self.assertEqual(data.sample_rate_hz, 20000.0)
         self.assertIsNone(data.relative_timestamps_s)
+        self.assertEqual(data.channel_names["x_1f"], "pem1_x")
 
     def test_declared_rate_disagreement_is_refused(self):
         arrays, timestamps, units, names = _inputs()
-        with self.assertRaisesRegex(DXDReaderError, "inconsistent"):
+        with self.assertRaisesRegex(
+            DXDReaderError, "inconsistent with the Dewesoft declared sample rate"
+        ):
             _assemble_ape_data(
                 source_file=Path("synthetic.dxd"),
                 arrays=arrays,
@@ -66,13 +69,6 @@ class DXDAssemblyTests(unittest.TestCase):
                 metadata={},
                 declared_sample_rate_hz=19900.0,
             )
-
-    def test_chunk_boundary_accepts_exact_next_sample(self):
-        _validate_chunk_boundary(0.04995, 0.05000, 20000.0)
-
-    def test_chunk_boundary_refuses_gap(self):
-        with self.assertRaisesRegex(DXDReaderError, "timestamp discontinuity"):
-            _validate_chunk_boundary(0.04995, 0.05010, 20000.0)
 
     def test_length_disagreement_is_refused_not_trimmed(self):
         arrays, timestamps, units, names = _inputs()
@@ -119,34 +115,48 @@ class DXDAssemblyTests(unittest.TestCase):
         )
         self.assertFalse(data.regular_sampling)
         self.assertIsNone(data.sample_rate_hz)
+        self.assertIsNotNone(data.relative_timestamps_s)
         np.testing.assert_allclose(
             data.relative_timestamps_s, irregular - irregular[0]
         )
 
-    def test_chunk_arrays_validate_synchronization_and_rate(self):
-        arrays, timestamps, _, _ = _inputs(n=100)
-        first, last = _validate_chunk_arrays(
-            arrays=arrays,
-            timestamps=timestamps,
-            sample_rate_hz=20000.0,
-        )
-        self.assertEqual(first, 0.0)
-        self.assertAlmostEqual(last, 99 / 20000.0)
+    def test_declared_rate_validator_accepts_exact_20khz(self):
+        t = np.arange(100, dtype=np.float64) / 20000.0
+        _validate_declared_rate(t, 20000.0)
 
-    def test_chunk_boundary_accepts_exact_next_sample(self):
-        _validate_chunk_boundary(
-            previous_last_timestamp_s=49.99995,
-            current_first_timestamp_s=50.0,
-            sample_rate_hz=20000.0,
-        )
-
-    def test_chunk_boundary_refuses_gap(self):
-        with self.assertRaisesRegex(DXDReaderError, "timestamp discontinuity"):
-            _validate_chunk_boundary(
-                previous_last_timestamp_s=49.99995,
-                current_first_timestamp_s=50.00010,
+    def test_chunk_model_requires_interval_length_to_match_arrays(self):
+        values = np.arange(10, dtype=np.float64)
+        with self.assertRaisesRegex(ValueError, "match the chunk interval"):
+            APEDXDChunk(
+                source_file=Path("synthetic.dxd"),
+                start_index=0,
+                stop_index=11,
                 sample_rate_hz=20000.0,
+                x_1f=values,
+                y_1f=values,
+                x_2f=values,
+                y_2f=values,
+                cavity_transmission=values,
+                first_timestamp_s=0.0,
+                last_timestamp_s=9 / 20000.0,
             )
+
+    def test_chunk_model_reports_sample_count(self):
+        values = np.arange(10, dtype=np.float64)
+        chunk = APEDXDChunk(
+            source_file=Path("synthetic.dxd"),
+            start_index=100,
+            stop_index=110,
+            sample_rate_hz=20000.0,
+            x_1f=values,
+            y_1f=values,
+            x_2f=values,
+            y_2f=values,
+            cavity_transmission=values,
+            first_timestamp_s=100 / 20000.0,
+            last_timestamp_s=109 / 20000.0,
+        )
+        self.assertEqual(chunk.n_samples, 10)
 
 
 if __name__ == "__main__":
