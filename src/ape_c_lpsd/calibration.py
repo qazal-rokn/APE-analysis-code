@@ -67,7 +67,7 @@ def calibrate_chunk(chunk: APEDXDChunk, calibration: CalibrationConfig) -> APECa
     rho_y[~valid] = np.nan
 
     i0_out = i0_w.astype(np.float64, copy=True)
-    i0_out[~np.isfinite(i0_out)] = np.nan
+    i0_out[~valid] = np.nan
 
     metadata = {
         "method": "ape_rms_quadrature_calibration_v1",
