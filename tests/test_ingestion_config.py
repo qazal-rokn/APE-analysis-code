@@ -25,11 +25,8 @@ channels:
 cleaning:
   block_size_seconds: 0.05
   reference_window_seconds: 60.0
-  cavity_lower_fraction: 0.90
-  eta0_lower_fraction: 0.90
-cleaning:
-  block_size_seconds: 0.05
-  reference_window_seconds: 60.0
+  reference_quantile: 0.90
+  refinement_iterations: 3
   cavity_lower_fraction: 0.90
   eta0_lower_fraction: 0.90
 calibration:
@@ -54,10 +51,8 @@ class DXDConfigTests(unittest.TestCase):
         self.assertEqual(config.channels.y_1f, "pem1_Y")
         self.assertAlmostEqual(config.cleaning.block_size_seconds, 0.05)
         self.assertAlmostEqual(config.cleaning.reference_window_seconds, 60.0)
-        self.assertAlmostEqual(config.cleaning.cavity_lower_fraction, 0.90)
-        self.assertAlmostEqual(config.cleaning.eta0_lower_fraction, 0.90)
-        self.assertAlmostEqual(config.cleaning.block_size_seconds, 0.05)
-        self.assertAlmostEqual(config.cleaning.reference_window_seconds, 60.0)
+        self.assertAlmostEqual(config.cleaning.reference_quantile, 0.90)
+        self.assertEqual(config.cleaning.refinement_iterations, 3)
         self.assertAlmostEqual(config.cleaning.cavity_lower_fraction, 0.90)
         self.assertAlmostEqual(config.cleaning.eta0_lower_fraction, 0.90)
         self.assertAlmostEqual(config.calibration.cavity_transmission_w_per_v, 0.020)
