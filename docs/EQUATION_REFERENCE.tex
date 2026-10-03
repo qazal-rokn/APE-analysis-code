@@ -2,6 +2,31 @@
 \usepackage{amsmath}
 \begin{document}
 
+\section*{Approved staged APE cleaning}
+
+Cleaning uses one-sided lower cuts against centered local medians.  Let
+$\widetilde{V}_{60}(t)$ be the 60 s local median constructed from 0.05 s
+cavity-transmission block medians.  The cavity mask is
+\begin{equation}
+M_{\rm cav}(t)=
+\left[V_{\rm trans}(t)\ge0.90\,\widetilde{V}_{60}(t)\right].
+\end{equation}
+Preliminary $\eta_0$ is computed only where $M_{\rm cav}$ is true.  Let
+$\widetilde{\eta}_{60}(t)$ be the 60 s local median constructed from 0.05 s
+$\eta_0$ block medians using cavity-good samples only.  Then
+\begin{equation}
+M_{\eta}(t)=
+M_{\rm cav}(t)\land
+\left[\eta_0(t)\ge0.90\,\widetilde{\eta}_{60}(t)\right],
+\end{equation}
+and
+\begin{equation}
+M_{\rm final}(t)=M_{\rm cav}(t)\land M_{\eta}(t).
+\end{equation}
+There is no upper-side cut.  Bad samples retain their original indices and are
+never removed and concatenated across gaps.  Slow drift is intentionally
+preserved by the local reference.
+
 \section*{Approved APE raw-to-calibrated chunk conversion}
 
 The recorded demodulated quadratures are treated as RMS voltages. For each
