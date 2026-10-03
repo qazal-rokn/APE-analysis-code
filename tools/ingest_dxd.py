@@ -9,7 +9,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ape_c_lpsd.ingestion import load_dxd_ingestion_config, read_ape_dxd
+from ape_c_lpsd.ingestion import load_dxd_ingestion_config, validate_ape_dxd_stream
 from ape_c_lpsd.ingestion.reference_paths import resolve_reference_dewesoft_paths
 
 
@@ -25,22 +25,27 @@ def main() -> None:
 
     config = load_dxd_ingestion_config(args.config)
     dewesoft = resolve_reference_dewesoft_paths(config.reference_project)
-    data = read_ape_dxd(
+    data = validate_ape_dxd_stream(
         config.input_file,
         channel_names=config.channels.as_mapping(),
         wrapper_path=dewesoft.wrapper_path,
         library_path=dewesoft.library_path,
+        chunk_samples=1_000_000,
     )
 
     summary = {
         "source_file": str(data.source_file),
         "n_samples": data.n_samples,
         "sample_rate_hz": data.sample_rate_hz,
-        "regular_sampling": data.regular_sampling,
-        "timestamps_preserved": data.relative_timestamps_s is not None,
+        "duration_s": data.duration_s,
         "start_time": None if data.start_time is None else data.start_time.isoformat(),
         "channel_names": data.channel_names,
         "channel_units": data.channel_units,
+        "stream_validation": {
+            "validated_full_file": True,
+            "chunk_samples": 1000000,
+            "full_arrays_retained_in_memory": False,
+        },
         "calibration_config_recorded_not_applied": {
             "cavity_transmission_w_per_v": config.calibration.cavity_transmission_w_per_v,
             "responsivity_a_per_w": config.calibration.responsivity_a_per_w,
