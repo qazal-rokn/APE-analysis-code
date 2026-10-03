@@ -1,0 +1,45 @@
+# General ingestion/cleaning/segment-selection configuration. No real source is named here.
+mode: automatic # manual or automatic
+reference_project: /path/to/read-only/APE-data-analysis # Root used to derive vendor/dewesoft/5.0.8 paths.
+output_directory: /path/to/new/ingestion-review-results
+input:
+  root: /path/to/raw-acquisition-root
+  source_manifest: /path/to/researcher-approved-ordered-sources.yaml
+  require_explicit_chronology_evidence: true
+channel_mapping:
+  cavity_trans: cavity_trans
+  pem2_x: pem2_X
+  pem2_y: pem2_Y
+  pem1_x: pem1_x
+  pem1_y: pem1_Y
+review:
+  diagnostic_channels: [cavity_trans, pem2_X, pem2_Y, pem1_x, pem1_Y]
+  raw_chunk_samples: 1000000
+  display_max_points: 10000
+cleaning_settings:
+  cavity_lock:
+    f_lock: 0.90
+    reference_window_seconds: 60.0
+    reference_quantile: 0.90
+    refinement_iterations: 3
+  pem_modulation:
+    cavity_transmission_mw_per_v: 20.0
+    second_harmonic_peak_filter_factor: 0.7
+    responsivity_a_per_w: 0.7
+    transimpedance_gain_v_per_a: 1000000.0
+    rms_to_peak_factor: 1.4142135623730951
+    eta0_min_accepted: 0.019
+  polarization:
+    sample_rate_hz: 20000.0
+    reduced_block_size_seconds: 0.05
+    samples_per_reduced_block: 1000
+    responsivity_a_per_w: 0.7
+    transimpedance_gain_v_per_a: 1000000.0
+    first_harmonic_rms_factor: 1.4142135623730951
+plotting:
+  raw_enabled: true
+  cleaned_enabled: true
+  selected_enabled: true
+  display_max_points: 10000
+  zoom_max_samples: 200000
+  dpi: 160

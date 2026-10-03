@@ -1,0 +1,29 @@
+# Copy to configs/run.yaml; edit paths here, never in Python source.
+cache_directory: /path/to/CALIBRATED_CACHE
+output_directory: /path/to/new/results
+lpsd_executable: /path/to/lpsd-exec
+channels: [rho_x, rho_y]
+run_label: c_lpsd_comparison
+real_data_approved: false # Must remain false until a separate researcher approval.
+validated_segment:
+  sample_count: 308717000
+  sample_rate_hz: 20000
+c_native_grid:
+  fmin_hz: 65.0
+  fmax_hz: 9000.0
+  effective_sbin_bins: 8.15 # C-probed Kaiser -w -2, -p 200 value; provenance/preflight only.
+lpsd:
+  dataset_name: /strain
+  method: 0                 # C -h 0: LPSD mode
+  window: -2                # C Kaiser window
+  psll_db: 200
+  linear_regression: 1      # Deliberately differs from old Python mean-only detrending.
+  overlap_percent: 50
+  desired_averages: 100
+  minimum_averages: 1       # Required to retain fmin = fs/N.
+  fmin_policy: c_window_feasibility_auto # C-reported SBIN, never hard-coded.
+  input_scale: 1
+  output_format: fDNRb
+  q_axion: 1000000
+  bins_per_batch: 5000
+  max_memory_power: 20      # Synthetic profile only; choose real value after benchmark.

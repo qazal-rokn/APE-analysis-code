@@ -1,0 +1,10 @@
+.DS_Store
+.venv/
+venv/
+__pycache__/
+*.pyc
+.codex/
+.env
+*.dxd
+results/
+reference_grid/

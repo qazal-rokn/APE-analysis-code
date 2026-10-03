@@ -1,0 +1,28 @@
+# Future full-record FFT extension. Edit paths/settings here; no source paths are hard-coded.
+input_contract:
+  # Metadata for an already-validated contiguous single-channel sequence; not raw data.
+  sequence_metadata_path: /path/to/validated_sequence_metadata.json
+  expected_sample_rate_hz: null  # Optional guard; use the upstream validated value.
+  required_unit: V
+  accepted_channels: [channel_x, channel_y]
+analysis:
+  # Display range changes only a future figure; it never changes numerical products.
+  requested_display_range_hz: [0.001, 100.0]
+  # Full FFT output is calculated on native bins; these are later selection/display bounds.
+  fft_range_hz: [0.001, 1.0]
+  # Must later be checked against an immutable C-native manifest.
+  c_lpsd_handoff_hz: 1.0
+  c_lpsd_calculable_range_hz: [1.0, 100.0]
+  detrend: none                 # Choices: none, mean, linear. No C-equivalence claim.
+  window_policy: rectangular    # Or numpy_kaiser_to_be_validated; never silently maps C Kaiser.
+  kaiser_beta: null             # Required only for numpy_kaiser_to_be_validated.
+  one_sided: true
+  full_record_only: true
+  zero_padding_factor: 1
+  # Conservative preflight includes input, work arrays, window, rFFT, PSD, and frequency arrays.
+  memory_limit_bytes: 17179869184
+artifacts:
+  output_directory: /path/to/new/fft-extension-results
+  write_npz: true
+  write_json_provenance: true
+  allow_combined_display: false # A later display may reference products; it cannot merge numerical data.

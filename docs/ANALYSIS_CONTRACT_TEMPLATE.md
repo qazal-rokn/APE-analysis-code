@@ -1,0 +1,20 @@
+# Analysis Contract Template
+
+No substantial scientific implementation may begin until the researcher
+explicitly approves this contract.
+
+## REQUESTED
+## CURRENT BEHAVIOR
+## UNDERSTANDING
+## PLANNED IMPLEMENTATION
+## SCIENTIFIC DEFINITIONS AND UNITS
+## RISKS AND CONTROLS
+## WILL NOT DO
+## FILES THAT WOULD CHANGE
+## VALIDATION PLAN
+## UNRESOLVED DECISIONS
+## REAL-DATA GATE
+## STATUS
+
+WAITING FOR RESEARCHER APPROVAL
+

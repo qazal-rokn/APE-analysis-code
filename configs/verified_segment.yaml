@@ -1,0 +1,8 @@
+segment:
+  sample_rate_hz: 20000
+  parts:
+    - {path: /Users/user/APE_Local_Data/After_wedged_EOM/Shot_Noise_RAM_EOM-1etha_0_x_y_0011.dxd, raw_start: 154903000, raw_stop: 216000000}
+    - {path: /Users/user/APE_Local_Data/After_wedged_EOM/Shot_Noise_RAM_EOM-1etha_0_x_y_0012.dxd, raw_start: 0, raw_stop: 216000000}
+    - {path: /Users/user/APE_Local_Data/After_wedged_EOM/Shot_Noise_RAM_EOM-1etha_0_x_y_0013.dxd, raw_start: 0, raw_stop: 31620000}
+channels: [pem1_x, pem1_Y]
+required_unit: V

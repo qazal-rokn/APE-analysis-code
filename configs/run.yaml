@@ -1,0 +1,28 @@
+cache_directory: /Users/user/APE_Local_Data/After_wedged_EOM/AXION_COHERENCE_CLEANED_LPSD/CALIBRATED_CACHE
+output_directory: /Users/user/Desktop/Code/Projects/APE-data-analysis-c-lpsd/results
+lpsd_executable: /Users/user/Downloads/Scalar-Dark-Matter-LPSD-1.0.0/LPSD/manual-build/lpsd-exec
+channels: [rho_x, rho_y]
+run_label: c_lpsd_comparison
+real_data_approved: false
+validated_segment:
+  sample_count: 308717000
+  sample_rate_hz: 20000
+c_native_grid:
+  fmin_hz: 65.0
+  fmax_hz: 9000.0
+  effective_sbin_bins: 8.15  # C-probed Kaiser -w -2, -p 200 value; provenance/preflight only.
+lpsd:
+  dataset_name: /strain
+  method: 0
+  window: -2
+  psll_db: 200
+  linear_regression: 1
+  overlap_percent: 50
+  desired_averages: 100
+  minimum_averages: 1
+  fmin_policy: c_window_feasibility_auto
+  input_scale: 1
+  output_format: fDNRb
+  q_axion: 1000000
+  bins_per_batch: 5000
+  max_memory_power: 20

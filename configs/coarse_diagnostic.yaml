@@ -1,0 +1,34 @@
+# COARSE DIAGNOSTIC ONLY — NOT FOR CANDIDATES OR LIMITS.
+# This configuration is independent of the frozen 4,947,016-node profile.
+output_root: /Users/user/Desktop/APE Research/APE-data-analysis-c-lpsd/results
+lpsd_executable: /Users/user/Downloads/Scalar-Dark-Matter-LPSD-1.0.0/LPSD/manual-build/lpsd-exec
+segment_manifest: /Users/user/Desktop/APE Research/APE-data-analysis-c-lpsd/results/production-automatic-review-890e6249231e4a5ea8afc124983699ca/frozen_selected_segment.json
+calibration_profile: /Users/user/Desktop/APE Research/APE-data-analysis-c-lpsd/results/production-automatic-review-890e6249231e4a5ea8afc124983699ca/calibration_profile.json
+frozen_dense_grid: /Users/user/Desktop/APE Research/APE-data-analysis-c-lpsd/results/c-native-grid-manifests/c-native-grid-1a37f2795f5f415a84656d06b4769e15.npz
+inputs:
+  x:
+    hdf5: /Users/user/Desktop/APE Research/APE-data-analysis-c-lpsd/results/calibrated-c-lpsd-pilot-4e64ae92d67a4168aa44e2e67431618b/x_ellipticity.h5
+    dataset: /x_ellipticity
+    expected_file_sha256: 3555e65f01150423ca73223a823666c0d916c7e00d21c69cde5030d533a94b32
+    recorded_channel: pem1_x
+  y:
+    hdf5: /Users/user/Desktop/APE Research/APE-data-analysis-c-lpsd/results/calibrated-c-lpsd-pilot-4e64ae92d67a4168aa44e2e67431618b/y_ellipticity.h5
+    dataset: /y_ellipticity
+    expected_file_sha256: ab1ff3ef02564be1cdf7953d0b76cd8a4aafffe6926d8ddd48a74099c629a473
+    recorded_channel: pem1_Y
+coarse_grid:
+  fmin_hz: 65.0
+  fmax_hz: 9000.0
+  jdes: 1000
+  bins_per_batch: 100
+lpsd:
+  method: 0
+  window: -2
+  psll_db: 200
+  linear_regression: 1
+  overlap_percent: 50
+  desired_averages: 100
+  minimum_averages: 1
+  input_scale: 1
+  max_memory_power: 20
+  output_format: fDNRb
