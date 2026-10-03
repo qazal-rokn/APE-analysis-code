@@ -215,10 +215,13 @@ def main() -> None:
         "cleaning": {
             "block_size_seconds": config.cleaning.block_size_seconds,
             "reference_window_seconds": config.cleaning.reference_window_seconds,
+            "reference_quantile": config.cleaning.reference_quantile,
+            "refinement_iterations": config.cleaning.refinement_iterations,
             "cavity_lower_fraction": config.cleaning.cavity_lower_fraction,
             "eta0_lower_fraction": config.cleaning.eta0_lower_fraction,
             "one_sided_lower_cuts_only": True,
-            "raw_sample_decisions": True,
+            "reduced_block_decisions": True,
+            "raw_sample_decisions": False,
         },
         "overall": {
             "cavity_good_fraction": cavity_good_count / total,
