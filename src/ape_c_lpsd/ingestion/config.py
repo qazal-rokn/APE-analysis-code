@@ -31,6 +31,16 @@ class APEChannelNames:
 
 
 @dataclass(frozen=True)
+class CleaningConfig:
+    """Run-specific staged cleaning parameters."""
+
+    block_size_seconds: float
+    reference_window_seconds: float
+    cavity_lower_fraction: float
+    eta0_lower_fraction: float
+
+
+@dataclass(frozen=True)
 class CalibrationConfig:
     """Run-specific calibration parameters.
 
@@ -50,6 +60,7 @@ class DXDIngestionConfig:
     reference_project: Path
     output_directory: Path | None
     channels: APEChannelNames
+    cleaning: CleaningConfig
     calibration: CalibrationConfig
 
 
@@ -96,6 +107,13 @@ def _required_positive_float(mapping: dict, key: str, section: str) -> float:
     return value
 
 
+def _required_fraction(mapping: dict, key: str, section: str) -> float:
+    value = _required_positive_float(mapping, key, section)
+    if value > 1.0:
+        raise IngestionConfigError(f"{section}.{key} must be <= 1")
+    return value
+
+
 def load_dxd_ingestion_config(path: str | Path) -> DXDIngestionConfig:
     """Load the canonical first-stage .dxd ingestion configuration."""
     config_path = Path(path).expanduser().resolve()
@@ -127,6 +145,22 @@ def load_dxd_ingestion_config(path: str | Path) -> DXDIngestionConfig:
             "the five APE roles must map to five distinct Dewesoft channels"
         )
 
+    cleaning_raw = _dict(raw, "cleaning")
+    cleaning = CleaningConfig(
+        block_size_seconds=_required_positive_float(
+            cleaning_raw, "block_size_seconds", "cleaning"
+        ),
+        reference_window_seconds=_required_positive_float(
+            cleaning_raw, "reference_window_seconds", "cleaning"
+        ),
+        cavity_lower_fraction=_required_fraction(
+            cleaning_raw, "cavity_lower_fraction", "cleaning"
+        ),
+        eta0_lower_fraction=_required_fraction(
+            cleaning_raw, "eta0_lower_fraction", "cleaning"
+        ),
+    )
+
     calibration_raw = _dict(raw, "calibration")
     calibration = CalibrationConfig(
         cavity_transmission_w_per_v=_required_positive_float(
@@ -154,6 +188,7 @@ def load_dxd_ingestion_config(path: str | Path) -> DXDIngestionConfig:
         reference_project=Path(reference_project).expanduser(),
         output_directory=None if output is None else Path(output).expanduser(),
         channels=channels,
+        cleaning=cleaning,
         calibration=calibration,
     )
 
