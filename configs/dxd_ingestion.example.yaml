@@ -17,6 +17,14 @@ channels:
   y_2f: pem2_Y
   cavity_transmission: cavity_trans
 
+# Staged cleaning: one-sided downward-glitch rejection only.
+# Local references are medians of 0.05 s block medians over a 60 s window.
+cleaning:
+  block_size_seconds: 0.05
+  reference_window_seconds: 60.0
+  cavity_lower_fraction: 0.90
+  eta0_lower_fraction: 0.90
+
 # These are run-specific calibration inputs, not universal APE constants.
 # Stage 1 records/validates them but does not yet apply calibration.
 calibration:
