@@ -1,27 +1,62 @@
-# APE C-LPSD Comparison Project
+# APE Analysis / C-LPSD Project
 
-This is a separate, approval-gated project for comparing the established APE
-Python/SpiCyPy LPSD workflow with the compiled C `lpsd-exec` backend.
+This repository is evolving from the original compiled-C LPSD comparison into
+the auditable APE analysis pipeline. Scientific changes remain approval-gated:
+inspect first, agree the contract, implement only the agreed scope, validate,
+then report.
 
-Current status: **contract proposed; no scientific implementation exists**.
-Controlled synthetic cache/transport validation is implemented; real-data runs
-remain refused. See `docs/QUICK_START.md` and `docs/REPRODUCIBILITY.md`.
+## Canonical stage 1: Dewesoft .dxd ingestion
 
-Run the compiled-C synthetic validation with
-` .venv/bin/python tools/run_synthetic_validation.py `. It uses temporary
-synthetic HDF5 only and prints an auditable report.
+The first canonical pipeline block is now defined as:
 
-For persistent dense-grid synthetic artifacts and measured small-grid resource
-benchmarks, run `.venv/bin/python tools/run_dense_synthetic_benchmark.py`.
+```text
+Dewesoft .dxd
+    |
+    v
+explicit five-channel mapping
+    |
+    v
+APEDXDData
+```
 
-The intended invariant is that existing APE loading, channel mapping,
-calibration, quality cleaning, and valid-data definitions remain unchanged. The
-only intended replacement is the time-domain-to-frequency-domain estimator.
+It reads exactly:
 
-Authoritative proposal: `docs/ANALYSIS_CONTRACT_C_LPSD_BACKEND.md`.
-Implementation must wait for explicit researcher approval and resolution of the
-open decisions in that contract. A later, separate approval is required before
-processing real experimental data.
+- first-harmonic X quadrature;
+- first-harmonic Y quadrature;
+- second-harmonic X quadrature;
+- second-harmonic Y quadrature;
+- cavity transmission.
+
+No calibration, cleaning, filtering, interpolation, resampling, trimming, gap
+filling, segment selection, spectral estimation, or X/Y combination is allowed
+inside this stage.
+
+Copy `configs/dxd_ingestion.example.yaml` to a run-specific YAML file and set
+the actual .dxd path, Dewesoft channel names, and run-specific calibration
+parameters. Then inspect the file with:
+
+```bash
+python tools/ingest_dxd.py --config /path/to/run_config.yaml
+```
+
+The wrapper prints an ingestion summary only. It does not write calibrated data.
+
+The run YAML already records the later calibration inputs
+(C_{\mathrm{trans}},q,G,H_2), but stage 1 does not apply them. In particular,
+`second_harmonic_pd_response` is (H_2), the measured attenuation/response of
+the photodiode/electronics chain at (2f).
+
+See `docs/DATA_FORMAT.md` for the raw-data contract.
+
+## Existing C-LPSD comparison work
+
+The repository also retains the earlier approval-gated infrastructure for
+comparing the established APE Python/SpiCyPy LPSD workflow with the compiled C
+`lpsd-exec` backend.
+
+Controlled synthetic cache/transport validation exists; the older real-data
+C-LPSD command remains deliberately refused until its separate scientific
+contract is approved.
 
 Reference inputs are read-only:
 
@@ -32,61 +67,49 @@ Reference inputs are read-only:
 
 The project must never write into those locations.
 
-## Proposed layout
+## Layout
 
 ```text
-.codex/agents/     governed specialist roles
-configs/           approved run and backend settings
-docs/              contract, method documentation, run records, changelog
+configs/           run/backend settings
+docs/              contracts, method notes, run records, changelog
 notebooks/         optional presentation notebooks; no authoritative logic
-results/           generated comparison artifacts; source data never stored here
-src/               small import, segment, bridge, parser, plot, provenance modules
+results/           generated artifacts; source data never stored here
+src/               ingestion, calibration-review, spectral/backend modules
 tests/             synthetic and format-validation tests
 tools/             thin, auditable command-line entry points
 ```
 
-For the approved C-native 65–9000 Hz planning stage, use `tools/plan_c_native_grid.py`. It reads only configuration and writes an immutable no-data grid manifest; it never exports signal data or invokes C. See `docs/C_NATIVE_GRID_PLANNER.md`.
+## Planned downstream pipeline
 
-## Planned low-frequency FFT extension
-
-A separate future module, `src/ape_c_lpsd/fft_extension/`, will provide a
-one-channel-at-a-time, full-uninterrupted-record, one-sided voltage FFT PSD for
-low-frequency coverage. It does not replace the C-LPSD backend and does not
-claim numerical identity with it.
+The intended long-term flow is:
 
 ```text
-validated X voltage ──> FFT extension ──> separate fft_full_record PSD/ASD
-                    └─> C-LPSD backend ─> separate c_lpsd PSD/ASD
-validated Y voltage ──> FFT extension ──> separate fft_full_record PSD/ASD
-                    └─> C-LPSD backend ─> separate c_lpsd PSD/ASD
-
-separate products ──> optional display-only combined plot
+.dxd reader
+    -> calibration
+    -> LPSD
+    -> background model
+    -> APE axion signal model
+    -> likelihood
+    -> candidates / upper limits
 ```
 
-The future FFT's display range, native FFT-calculable range, and C-LPSD
-calculable range are separate configured concepts. See
-`docs/FFT_EXTENSION.md`, `docs/FFT_EXTENSION_ARCHITECTURE.md`, and
-`docs/FFT_EXTENSION_VALIDATION_PLAN.md`. The implementation and its tests have
-not been run on real data or as a validation suite.
+Those later stages are separate scientific changes and are not implied by the
+stage-1 reader.
 
-## Ingestion and longest-segment selection
+## Existing ingestion / segment-review infrastructure
 
-The independent `src/ape_c_lpsd/ingestion/` package supports a future manual
-mode (explicit ordered paths/slices) and automatic mode (an explicit
-chronology-evidenced source manifest). It reuses the frozen reference quality
-and calibration functions, creates review artifacts, splits at every invalid
-sample or unverified boundary, and freezes the globally longest valid segment
-for later separate X/Y FFT or C-LPSD products. It never infers physical order
-from filenames or modification times. See
-`docs/INGESTION_AND_SEGMENT_SELECTION.md` and `docs/INGESTION_ARCHITECTURE.md`.
+The older `src/ape_c_lpsd/ingestion/` chronology and quality-review modules
+remain available as a reference/cross-check path. They reuse frozen reference
+APE quality and calibration functions, split at invalid or unverified
+boundaries, and can freeze the longest validated segment. They are not silently
+invoked by the new canonical .dxd reader.
 
-## Calibrated quadrature review
+See `docs/INGESTION_AND_SEGMENT_SELECTION.md` and
+`docs/INGESTION_ARCHITECTURE.md` for that legacy/reference workflow.
+
+## Existing calibrated quadrature review
 
 The review-only `calibrated_review` stage applies the frozen reference scalar
-calibration denominator independently to the two recorded voltage quadratures:
-`X_ellipticity = pem1_x / D` and `Y_ellipticity = pem1_Y / D`.  It preserves
-the exact `raw_index // 1000` reduced-record mapping and retains invalid
-locations as gaps.  It makes no phase, X/Y gain-imbalance, or leakage
-correction, and it does not combine X/Y.  Its outputs are dimensionless
-ellipticity; `D` is recorded in V.  These review plots are not spectra and do
-not authorize HDF5 export or C-LPSD execution.
+calibration denominator independently to the two recorded voltage quadratures.
+It does not combine X/Y and remains a reference implementation until the new
+APE calibration contract is frozen.
