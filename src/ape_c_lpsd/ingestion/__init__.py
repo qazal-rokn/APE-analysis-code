@@ -31,6 +31,7 @@ __all__ = [
     "APEDXDMetadata",
     "CalibrationConfig",
     "DXDIngestionConfig",
+    "DXDInspection",
     "DXDReaderError",
     "IngestionConfig",
     "ReferenceWorkflow",
