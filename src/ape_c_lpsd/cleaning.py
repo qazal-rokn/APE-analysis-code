@@ -257,7 +257,8 @@ def _reduce_chunk_blocks(
 
     starts = chunk.start_index + np.arange(n_blocks, dtype=np.int64) * block_samples
     stops = np.minimum(starts + block_samples, chunk.stop_index)
-    midpoints = (starts + stops - 1) / (2.0 * chunk.sample_rate_hz)
+    # Physical midpoint of the half-open block interval [start/fs, stop/fs).
+    midpoints = (starts + stops) / (2.0 * chunk.sample_rate_hz)
 
     cavity_avg = np.full(n_blocks, np.nan, dtype=np.float64)
     cavity_min = np.full(n_blocks, np.nan, dtype=np.float64)
