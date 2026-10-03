@@ -1,6 +1,7 @@
 """Unit tests for streaming cleaning-interval diagnostics."""
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
 import numpy as np
@@ -10,6 +11,7 @@ MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "inspect_cleaning.
 SPEC = importlib.util.spec_from_file_location("inspect_cleaning", MODULE_PATH)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC is not None and SPEC.loader is not None
+sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 IntervalAccumulator = MODULE._IntervalAccumulator
 
