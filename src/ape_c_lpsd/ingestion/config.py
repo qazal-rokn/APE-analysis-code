@@ -32,10 +32,12 @@ class APEChannelNames:
 
 @dataclass(frozen=True)
 class CleaningConfig:
-    """Run-specific staged cleaning parameters."""
+    """Run-specific reduced-block quality-cleaning parameters."""
 
     block_size_seconds: float
     reference_window_seconds: float
+    reference_quantile: float
+    refinement_iterations: int
     cavity_lower_fraction: float
     eta0_lower_fraction: float
 
@@ -114,6 +116,23 @@ def _required_fraction(mapping: dict, key: str, section: str) -> float:
     return value
 
 
+def _required_nonnegative_int(mapping: dict, key: str, section: str) -> int:
+    if key not in mapping:
+        raise IngestionConfigError(f"{section}.{key} is required")
+    value = mapping[key]
+    if isinstance(value, bool):
+        raise IngestionConfigError(f"{section}.{key} must be an integer")
+    try:
+        integer = int(value)
+    except (TypeError, ValueError) as exc:
+        raise IngestionConfigError(f"{section}.{key} must be an integer") from exc
+    if integer != value or integer < 0:
+        raise IngestionConfigError(
+            f"{section}.{key} must be a non-negative integer"
+        )
+    return integer
+
+
 def load_dxd_ingestion_config(path: str | Path) -> DXDIngestionConfig:
     """Load the canonical first-stage .dxd ingestion configuration."""
     config_path = Path(path).expanduser().resolve()
@@ -152,6 +171,12 @@ def load_dxd_ingestion_config(path: str | Path) -> DXDIngestionConfig:
         ),
         reference_window_seconds=_required_positive_float(
             cleaning_raw, "reference_window_seconds", "cleaning"
+        ),
+        reference_quantile=_required_fraction(
+            cleaning_raw, "reference_quantile", "cleaning"
+        ),
+        refinement_iterations=_required_nonnegative_int(
+            cleaning_raw, "refinement_iterations", "cleaning"
         ),
         cavity_lower_fraction=_required_fraction(
             cleaning_raw, "cavity_lower_fraction", "cleaning"
