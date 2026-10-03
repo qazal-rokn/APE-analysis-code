@@ -71,6 +71,22 @@ def _regular_rate(timestamps_s: np.ndarray) -> float | None:
     return 1.0 / step
 
 
+def _timestamps_match_declared_rate(
+    timestamps_s: np.ndarray, declared_sample_rate_hz: float
+) -> bool:
+    """Return True only when all timestamp steps agree with the declared rate."""
+    if timestamps_s.size < 2:
+        return False
+    if not np.isfinite(declared_sample_rate_hz) or declared_sample_rate_hz <= 0:
+        return False
+    dt = np.diff(timestamps_s)
+    if not np.all(np.isfinite(dt)) or np.any(dt <= 0):
+        return False
+    expected_step = 1.0 / declared_sample_rate_hz
+    tolerance = max(1e-12, abs(expected_step) * 1e-6)
+    return bool(np.allclose(dt, expected_step, rtol=0.0, atol=tolerance))
+
+
 def _assemble_ape_data(
     *,
     source_file: Path,
@@ -80,6 +96,7 @@ def _assemble_ape_data(
     channel_names: Mapping[str, str],
     start_time: datetime | None,
     metadata: dict,
+    declared_sample_rate_hz: float | None = None,
 ) -> APEDXDData:
     """Validate synchronized raw channels and construct the canonical object."""
     missing = [key for key in _REQUIRED_KEYS if key not in arrays or key not in timestamps]
@@ -117,12 +134,28 @@ def _assemble_ape_data(
                 f"selected channels are not synchronized: {reference_key} and {key} timestamps differ"
             )
 
-    sample_rate_hz = _regular_rate(reference_t)
-    regular_sampling = sample_rate_hz is not None
+    timestamp_rate_hz = _regular_rate(reference_t)
+    regular_sampling = timestamp_rate_hz is not None
     relative_timestamps_s = None
-    if not regular_sampling:
-        # Preserve the actual timing instead of pretending the record is uniform.
-        relative_timestamps_s = reference_t - reference_t[0]
+
+    if declared_sample_rate_hz is not None:
+        if not np.isfinite(declared_sample_rate_hz) or declared_sample_rate_hz <= 0:
+            raise DXDReaderError(
+                f"invalid Dewesoft declared sample rate: {declared_sample_rate_hz}"
+            )
+        if not _timestamps_match_declared_rate(reference_t, declared_sample_rate_hz):
+            raise DXDReaderError(
+                "selected-channel timestamps are inconsistent with the Dewesoft "
+                f"declared sample rate {declared_sample_rate_hz} Hz"
+            )
+        sample_rate_hz = float(declared_sample_rate_hz)
+        regular_sampling = True
+    else:
+        sample_rate_hz = timestamp_rate_hz
+        if not regular_sampling:
+            # Without authoritative file-rate metadata, preserve actual timing
+            # rather than pretending the record is uniform.
+            relative_timestamps_s = reference_t - reference_t[0]
 
     return APEDXDData(
         source_file=source_file,
@@ -277,6 +310,7 @@ def read_ape_dxd(
             channel_names=channel_names,
             start_time=_ole_datetime(float(file_info.start_store_time)),
             metadata=metadata,
+            declared_sample_rate_hz=float(file_info.sample_rate),
         )
     finally:
         if opened:
