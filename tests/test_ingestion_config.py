@@ -22,6 +22,11 @@ channels:
   x_2f: pem2_X
   y_2f: pem2_Y
   cavity_transmission: cavity_trans
+cleaning:
+  block_size_seconds: 0.05
+  reference_window_seconds: 60.0
+  cavity_lower_fraction: 0.90
+  eta0_lower_fraction: 0.90
 calibration:
   cavity_transmission_w_per_v: 0.020
   responsivity_a_per_w: 0.7
@@ -42,6 +47,10 @@ class DXDConfigTests(unittest.TestCase):
         config = _load(BASE)
         self.assertEqual(config.channels.x_1f, "pem1_x")
         self.assertEqual(config.channels.y_1f, "pem1_Y")
+        self.assertAlmostEqual(config.cleaning.block_size_seconds, 0.05)
+        self.assertAlmostEqual(config.cleaning.reference_window_seconds, 60.0)
+        self.assertAlmostEqual(config.cleaning.cavity_lower_fraction, 0.90)
+        self.assertAlmostEqual(config.cleaning.eta0_lower_fraction, 0.90)
         self.assertAlmostEqual(config.calibration.cavity_transmission_w_per_v, 0.020)
         self.assertAlmostEqual(config.calibration.second_harmonic_pd_response, 0.7)
 
