@@ -8,3 +8,4 @@ __pycache__/
 *.dxd
 results/
 reference_grid/
+data_files/
