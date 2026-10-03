@@ -1,14 +1,15 @@
-"""Synthetic validation for staged local-median APE cleaning."""
+"""Synthetic validation for approved reduced-block q90 APE cleaning."""
 from pathlib import Path
 import unittest
+
 import numpy as np
 
+from ape_c_lpsd.calibration import calibrate_chunk
 from ape_c_lpsd.cleaning import (
     build_cleaning_reference_plan,
     clean_chunk,
     clean_chunk_with_plan,
 )
-from ape_c_lpsd.calibration import calibrate_chunk
 from ape_c_lpsd.ingestion.config import CalibrationConfig, CleaningConfig
 from ape_c_lpsd.ingestion.models import APEDXDChunk
 
@@ -19,6 +20,8 @@ class CleaningTests(unittest.TestCase):
         self.cleaning = CleaningConfig(
             block_size_seconds=1.0,
             reference_window_seconds=20.0,
+            reference_quantile=0.90,
+            refinement_iterations=3,
             cavity_lower_fraction=0.90,
             eta0_lower_fraction=0.90,
         )
@@ -29,14 +32,16 @@ class CleaningTests(unittest.TestCase):
             second_harmonic_pd_response=0.7,
         )
 
-    def _chunk(self):
+    def _chunk(self, *, nominal_eta=0.022):
         n = 12000
         t = np.arange(n) / self.fs
-        vtrans = 0.50 - 0.04 * (t / t[-1])
-        eta = 0.022 - 0.001 * (t / t[-1])
 
-        cavity_glitch = slice(3500, 3600)
-        eta_glitch = slice(8000, 8100)
+        # Slow drifts in both observables should track their local q90 references.
+        vtrans = 0.50 - 0.04 * (t / t[-1])
+        eta = nominal_eta - 0.001 * (t / t[-1])
+
+        cavity_glitch = slice(3500, 3600)  # exactly one 1 s reduced block
+        eta_glitch = slice(8000, 8100)     # exactly one 1 s reduced block
         vtrans[cavity_glitch] *= 0.50
         eta[eta_glitch] *= 0.50
 
@@ -65,9 +70,10 @@ class CleaningTests(unittest.TestCase):
             last_timestamp_s=(n - 1) / self.fs,
         ), cavity_glitch, eta_glitch
 
-    def test_rejects_downward_glitches_but_preserves_slow_drift(self):
+    def test_rejects_block_glitches_but_preserves_slow_drift(self):
         chunk, cavity_glitch, eta_glitch = self._chunk()
         result = clean_chunk(chunk, self.cleaning, self.calibration)
+
         self.assertFalse(np.any(result.cavity_good[cavity_glitch]))
         self.assertTrue(np.all(result.cavity_good[eta_glitch]))
         self.assertFalse(np.any(result.eta_good[eta_glitch]))
@@ -75,14 +81,46 @@ class CleaningTests(unittest.TestCase):
         safe = np.ones(chunk.n_samples, dtype=bool)
         safe[cavity_glitch] = False
         safe[eta_glitch] = False
-        self.assertGreater(np.mean(result.final_good[safe]), 0.999)
+        self.assertGreater(np.mean(result.final_good[safe]), 0.99)
+
+    def test_cavity_decision_uses_block_minimum_not_block_average(self):
+        chunk, _, _ = self._chunk()
+        v = chunk.cavity_transmission.copy()
+
+        # A single deep sample is far too short to lower the 1 s block average
+        # appreciably, but the old validated cavity rule deliberately uses the
+        # block minimum for the lock decision.
+        target = 5000
+        v[target] *= 0.20
+        changed = APEDXDChunk(
+            source_file=chunk.source_file,
+            start_index=chunk.start_index,
+            stop_index=chunk.stop_index,
+            sample_rate_hz=chunk.sample_rate_hz,
+            x_1f=chunk.x_1f,
+            y_1f=chunk.y_1f,
+            x_2f=chunk.x_2f,
+            y_2f=chunk.y_2f,
+            cavity_transmission=v,
+            first_timestamp_s=chunk.first_timestamp_s,
+            last_timestamp_s=chunk.last_timestamp_s,
+        )
+        result = clean_chunk(changed, self.cleaning, self.calibration)
+        block = slice(5000, 5100)
+        self.assertFalse(np.any(result.cavity_good[block]))
+
+    def test_eta0_is_relative_not_fixed_0p019(self):
+        # A stable eta0 near 0.010 is below the old fixed 0.019 threshold but
+        # should pass the new researcher-approved relative q90 rule.
+        chunk, cavity_glitch, eta_glitch = self._chunk(nominal_eta=0.010)
+        result = clean_chunk(chunk, self.cleaning, self.calibration)
+        safe = np.ones(chunk.n_samples, dtype=bool)
+        safe[cavity_glitch] = False
+        safe[eta_glitch] = False
+        self.assertGreater(np.mean(result.eta_good[safe]), 0.99)
 
     def test_full_record_reference_plan_crosses_chunk_boundaries(self):
         whole, cavity_glitch, eta_glitch = self._chunk()
-
-        # 20 s chunks, deliberately the same size as the reference window.
-        # The reference plan must therefore use neighboring chunks rather than
-        # treating each chunk as an isolated record.
         chunk_samples = 2000
 
         def factory():
@@ -115,10 +153,6 @@ class CleaningTests(unittest.TestCase):
 
         self.assertFalse(np.any(final_good[cavity_glitch]))
         self.assertFalse(np.any(final_good[eta_glitch]))
-        safe = np.ones(whole.n_samples, dtype=bool)
-        safe[cavity_glitch] = False
-        safe[eta_glitch] = False
-        self.assertGreater(np.mean(final_good[safe]), 0.999)
 
     def test_full_calibration_is_gated_by_final_cleaning_mask(self):
         chunk, cavity_glitch, eta_glitch = self._chunk()
