@@ -176,8 +176,10 @@ def main() -> None:
     eta_only_bad_runs = _IntervalAccumulator(target_value=True)
     final_bad_runs = _IntervalAccumulator(target_value=False)
     final_good_runs = _IntervalAccumulator(target_value=True)
-    cavity_block_medians: list[float] = []
-    eta_block_medians: list[float] = []
+    cavity_block_averages = plan.cavity_average_blocks[np.isfinite(plan.cavity_average_blocks)]
+    eta_blocks = plan.eta0_blocks[
+        plan.cavity_good_blocks & np.isfinite(plan.eta0_blocks)
+    ]
 
     block = plan.block_samples
     for chunk in chunk_factory():
@@ -198,18 +200,6 @@ def main() -> None:
         final_bad_runs.feed(result.final_good, chunk.start_index)
         final_good_runs.feed(result.final_good, chunk.start_index)
 
-        v = np.asarray(chunk.cavity_transmission, dtype=np.float64)
-        e = np.asarray(result.eta0_preliminary, dtype=np.float64)
-        for start in range(0, chunk.n_samples, block):
-            stop = min(chunk.n_samples, start + block)
-            vb = v[start:stop]
-            vb = vb[np.isfinite(vb)]
-            if vb.size:
-                cavity_block_medians.append(float(np.median(vb)))
-            eb = e[start:stop]
-            eb = eb[np.isfinite(eb)]
-            if eb.size:
-                eta_block_medians.append(float(np.median(eb)))
 
     if total != plan.total_samples:
         raise RuntimeError(
@@ -228,8 +218,11 @@ def main() -> None:
         "cleaning": {
             "block_size_seconds": config.cleaning.block_size_seconds,
             "reference_window_seconds": config.cleaning.reference_window_seconds,
+            "reference_quantile": config.cleaning.reference_quantile,
+            "refinement_iterations": config.cleaning.refinement_iterations,
             "cavity_lower_fraction": config.cleaning.cavity_lower_fraction,
             "eta0_lower_fraction": config.cleaning.eta0_lower_fraction,
+            "reduced_block_decisions": True,
             "one_sided_lower_cuts_only": True,
         },
         "fractions": {
@@ -249,11 +242,12 @@ def main() -> None:
             "final_bad_intervals": len(final_bad_runs.lengths_samples),
         },
         "diagnostics": {
-            "median_cavity_transmission_v_from_0p05s_block_medians": (
-                None if not cavity_block_medians else float(np.median(cavity_block_medians))
+            "median_cavity_transmission_v_from_reduced_block_averages": (
+                None if cavity_block_averages.size == 0
+                else float(np.median(cavity_block_averages))
             ),
-            "median_eta0_from_cavity_good_0p05s_block_medians": (
-                None if not eta_block_medians else float(np.median(eta_block_medians))
+            "median_eta0_from_cavity_good_reduced_records": (
+                None if eta_blocks.size == 0 else float(np.median(eta_blocks))
             ),
         },
         "interval_diagnostics": {
