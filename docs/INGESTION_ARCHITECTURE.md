@@ -35,24 +35,34 @@ The approved downstream order is now:
 validated raw DXD chunks
         |
         v
-cavity local-median lower cut
+0.05 s reduced records
         |
         v
-preliminary I0 and eta0 on cavity-good samples
+cavity average -> centered 60 s q90 reference
+cavity minimum -> 90% lower decision, 3 refinements
         |
         v
-eta0 local-median lower cut
+reduced X2f/Y2f/cavity averages -> preliminary eta0
         |
         v
-final good mask
+eta0 -> centered 60 s q90 reference
+90% lower decision, 3 refinements
+        |
+        v
+final good reduced-record mask
+        |
+        v
+expand mask to original raw indices
         |
         v
 full rho_X / rho_Y calibration only on final-good samples
 ```
 
-The cleaning references are constructed across the full record at 0.05 s block
-resolution so 60 s local-median windows do not reset at raw chunk boundaries.
-Raw science data remain bounded-memory and chunked.
+The quality references are constructed across the full record at 0.05 s
+reduced-record resolution so centered 60 s q90 windows do not reset at raw
+reader chunk boundaries. The raw science channels remain bounded-memory and
+chunked. Reduced statistics define quality only; they are not substituted for
+the raw science samples used later in calibration and spectral estimation.
 
 ## Legacy/reference ingestion and segment selection
 
