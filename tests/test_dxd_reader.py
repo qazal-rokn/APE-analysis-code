@@ -41,12 +41,30 @@ class DXDAssemblyTests(unittest.TestCase):
             channel_names=names,
             start_time=None,
             metadata={"synthetic": True},
+            declared_sample_rate_hz=20000.0,
         )
         self.assertEqual(data.n_samples, 1000)
         self.assertTrue(data.regular_sampling)
-        self.assertAlmostEqual(data.sample_rate_hz, 20000.0, places=5)
+        self.assertEqual(data.sample_rate_hz, 20000.0)
         self.assertIsNone(data.relative_timestamps_s)
         self.assertEqual(data.channel_names["x_1f"], "pem1_x")
+
+
+    def test_declared_rate_disagreement_is_refused(self):
+        arrays, timestamps, units, names = _inputs()
+        with self.assertRaisesRegex(
+            DXDReaderError, "inconsistent with the Dewesoft declared sample rate"
+        ):
+            _assemble_ape_data(
+                source_file=Path("synthetic.dxd"),
+                arrays=arrays,
+                timestamps=timestamps,
+                units=units,
+                channel_names=names,
+                start_time=None,
+                metadata={},
+                declared_sample_rate_hz=19900.0,
+            )
 
     def test_length_disagreement_is_refused_not_trimmed(self):
         arrays, timestamps, units, names = _inputs()
