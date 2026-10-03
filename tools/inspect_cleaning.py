@@ -127,9 +127,12 @@ def main() -> None:
             "one_sided_lower_cuts_only": True,
         },
         "fractions": {
-            "cavity_good": cavity_good_count / total,
-            "eta0_good_after_cavity": eta_good_count / total,
-            "final_good": final_good_count / total,
+            "cavity_good_of_total": cavity_good_count / total,
+            "eta0_good_of_total": eta_good_count / total,
+            "eta0_good_given_cavity_good": (
+                None if cavity_good_count == 0 else eta_good_count / cavity_good_count
+            ),
+            "final_good_of_total": final_good_count / total,
         },
         "counts": {
             "cavity_good_samples": cavity_good_count,
