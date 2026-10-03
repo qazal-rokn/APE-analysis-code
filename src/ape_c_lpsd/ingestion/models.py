@@ -78,6 +78,38 @@ class APEDXDChunk:
 
 
 @dataclass(frozen=True)
+class APECalibratedChunk:
+    """Calibrated observables for one raw APE chunk."""
+
+    source_file: Path
+    start_index: int
+    stop_index: int
+    sample_rate_hz: float
+    i0_w: np.ndarray
+    eta0: np.ndarray
+    rho_x: np.ndarray
+    rho_y: np.ndarray
+    valid_mask: np.ndarray
+    calibration_metadata: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        count = self.stop_index - self.start_index
+        if self.start_index < 0 or count <= 0:
+            raise ValueError("invalid calibrated chunk interval")
+        arrays = (self.i0_w, self.eta0, self.rho_x, self.rho_y, self.valid_mask)
+        if any(np.asarray(values).shape != (count,) for values in arrays):
+            raise ValueError("all calibrated arrays must match the chunk interval")
+        if self.sample_rate_hz <= 0:
+            raise ValueError("calibrated chunk sample rate must be positive")
+        if np.asarray(self.valid_mask).dtype != np.bool_:
+            raise ValueError("valid_mask must be boolean")
+
+    @property
+    def n_samples(self) -> int:
+        return self.stop_index - self.start_index
+
+
+@dataclass(frozen=True)
 class APEDXDData:
     """Compatibility full-memory raw-data object for small controlled inputs."""
 
