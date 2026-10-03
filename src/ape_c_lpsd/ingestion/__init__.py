@@ -3,6 +3,7 @@
 from .config import (
     APEChannelNames,
     CalibrationConfig,
+    CleaningConfig,
     DXDIngestionConfig,
     IngestionConfig,
     load_dxd_ingestion_config,
@@ -31,6 +32,7 @@ __all__ = [
     "APEDXDInspection",
     "APEDXDMetadata",
     "CalibrationConfig",
+    "CleaningConfig",
     "DXDIngestionConfig",
     "DXDReaderError",
     "IngestionConfig",
