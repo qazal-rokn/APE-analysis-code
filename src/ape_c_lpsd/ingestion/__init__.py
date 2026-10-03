@@ -8,8 +8,14 @@ from .config import (
     load_dxd_ingestion_config,
     load_ingestion_config,
 )
-from .dxd_reader import DXDReaderError, read_ape_dxd
-from .models import APEDXDData
+from .dxd_reader import (
+    DXDReaderError,
+    inspect_ape_dxd,
+    iter_ape_dxd_chunks,
+    read_ape_dxd,
+    validate_ape_dxd_stream,
+)
+from .models import APEDXDChunk, APEDXDData, APEDXDMetadata
 from .segments import (
     ValidRun,
     choose_global_longest,
@@ -20,7 +26,9 @@ from .reference_workflow import ReferenceWorkflow
 
 __all__ = [
     "APEChannelNames",
+    "APEDXDChunk",
     "APEDXDData",
+    "APEDXDMetadata",
     "CalibrationConfig",
     "DXDIngestionConfig",
     "DXDReaderError",
@@ -29,8 +37,11 @@ __all__ = [
     "ValidRun",
     "choose_global_longest",
     "freeze_manual_segment",
+    "inspect_ape_dxd",
+    "iter_ape_dxd_chunks",
     "load_dxd_ingestion_config",
     "load_ingestion_config",
     "read_ape_dxd",
+    "validate_ape_dxd_stream",
     "write_frozen_segment_manifest",
 ]
