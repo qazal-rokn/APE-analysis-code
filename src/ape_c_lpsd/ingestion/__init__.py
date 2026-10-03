@@ -9,14 +9,12 @@ from .config import (
     load_ingestion_config,
 )
 from .dxd_reader import (
+    DEFAULT_CHUNK_SIZE_SAMPLES,
     DXDReaderError,
-    inspect_ape_dxd,
     inspect_dxd,
     iter_ape_dxd_chunks,
-    read_ape_dxd,
-    validate_ape_dxd_stream,
 )
-from .models import APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
+from .models import APEDXDChunk, APEDXDData, APEDXDInspection
 from .segments import (
     ValidRun,
     choose_global_longest,
@@ -30,8 +28,8 @@ __all__ = [
     "APEDXDChunk",
     "APEDXDData",
     "APEDXDInspection",
-    "APEDXDMetadata",
     "CalibrationConfig",
+    "DEFAULT_CHUNK_SIZE_SAMPLES",
     "DXDIngestionConfig",
     "DXDReaderError",
     "IngestionConfig",
@@ -39,12 +37,9 @@ __all__ = [
     "ValidRun",
     "choose_global_longest",
     "freeze_manual_segment",
-    "inspect_ape_dxd",
     "inspect_dxd",
     "iter_ape_dxd_chunks",
     "load_dxd_ingestion_config",
     "load_ingestion_config",
-    "read_ape_dxd",
-    "validate_ape_dxd_stream",
     "write_frozen_segment_manifest",
 ]
