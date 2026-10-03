@@ -60,6 +60,27 @@ class CalibrationTests(unittest.TestCase):
         self.assertEqual(out.start_index, 100)
         self.assertEqual(out.stop_index, 164)
 
+    def test_external_cleaning_mask_gates_full_calibration(self):
+        n = 4
+        values = np.ones(n)
+        chunk = APEDXDChunk(
+            source_file=Path("synthetic.dxd"),
+            start_index=0,
+            stop_index=n,
+            sample_rate_hz=20000.0,
+            x_1f=values,
+            y_1f=values,
+            x_2f=values,
+            y_2f=np.zeros(n),
+            cavity_transmission=np.full(n, 0.5),
+            first_timestamp_s=0.0,
+            last_timestamp_s=3 / 20000.0,
+        )
+        mask = np.array([True, False, True, False])
+        out = calibrate_chunk(chunk, self.cfg, input_valid_mask=mask)
+        self.assertEqual(out.valid_mask.tolist(), mask.tolist())
+        self.assertTrue(np.isnan(out.rho_x[~mask]).all())
+
     def test_invalid_physical_samples_remain_indexed_and_nan(self):
         n = 4
         chunk = APEDXDChunk(
