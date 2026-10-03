@@ -1,0 +1,29 @@
+# Canonical APE stage-1 ingestion configuration.
+# Copy this file for each run and replace every run-specific value explicitly.
+
+input_file: /path/to/run.dxd
+
+# Read-only APE reference project containing vendor/dewesoft/5.0.8/.
+reference_project: /path/to/read-only/APE-data-analysis
+
+# Reserved for later non-overwriting provenance/review artifacts.
+# Stage 1 does not write calibrated data here.
+output_directory: /path/to/ape-ingestion-results
+
+channels:
+  x_1f: pem1_x
+  y_1f: pem1_Y
+  x_2f: pem2_X
+  y_2f: pem2_Y
+  cavity_transmission: cavity_trans
+
+# These are run-specific calibration inputs, not universal APE constants.
+# Stage 1 records/validates them but does not yet apply calibration.
+calibration:
+  cavity_transmission_w_per_v: 0.020
+  responsivity_a_per_w: 0.7
+  transimpedance_gain_v_per_a: 1000000.0
+
+  # H2: measured photodiode/electronics response at 2f.
+  # A value below 1 means the 2f signal is attenuated by the readout chain.
+  second_harmonic_pd_response: 0.7
