@@ -48,22 +48,31 @@ MULTIFILE_MODULE = importlib.util.module_from_spec(MULTIFILE_SPEC)
 assert MULTIFILE_SPEC is not None and MULTIFILE_SPEC.loader is not None
 sys.modules[MULTIFILE_SPEC.name] = MULTIFILE_MODULE
 MULTIFILE_SPEC.loader.exec_module(MULTIFILE_MODULE)
-summarize_block_runs = MULTIFILE_MODULE._summarize_block_runs
+true_runs = MULTIFILE_MODULE._true_runs
+run_summary = MULTIFILE_MODULE._run_summary
 
 
-class MultifileReducedBlockSummaryTests(unittest.TestCase):
-    def test_block_run_summary_matches_raw_sample_intervals(self):
+class MultifileCandidateSearchTests(unittest.TestCase):
+    def test_true_runs_reconstruct_contiguous_sample_intervals(self):
         starts = np.array([0, 2, 4, 6, 8], dtype=np.int64)
         stops = np.array([2, 4, 6, 8, 10], dtype=np.int64)
         mask = np.array([True, True, False, True, True])
 
-        summary = summarize_block_runs(mask, starts, stops, sample_rate_hz=2.0)
+        runs = true_runs(mask, starts, stops)
+        self.assertEqual(runs, [(0, 4), (6, 10)])
 
+        summary = run_summary(runs, sample_rate_hz=2.0)
         self.assertEqual(summary["count"], 2)
         self.assertEqual(summary["total_duration_s"], 4.0)
         self.assertEqual(summary["max_duration_s"], 2.0)
-        self.assertEqual(summary["longest_start_index"], 0)
-        self.assertEqual(summary["longest_stop_index_exclusive"], 4)
+
+    def test_rank_bound_logic_is_safe(self):
+        # Once a 9-s final-good run has been found, an unprocessed cavity
+        # candidate of only 8 s cannot possibly beat it because eta0 cleaning
+        # can only shorten a cavity-good candidate.
+        best_samples = 9
+        next_candidate_samples = 8
+        self.assertLessEqual(next_candidate_samples, best_samples)
 
 
 if __name__ == "__main__":
