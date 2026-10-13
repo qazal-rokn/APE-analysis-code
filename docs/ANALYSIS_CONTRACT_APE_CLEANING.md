@@ -125,6 +125,32 @@ The approved replacement is therefore:
 6. hold the last healthy reference when the accepted-history window empties;
 7. one-sided lower decision at 80% of the protected reference.
 
+## EFFICIENT LONGEST-SEGMENT SEARCH
+
+For the specific task of finding the single longest final-good continuous
+segment, the researcher approved an optimized search that does not calculate
+sample-level eta0 over the entire acquisition.
+
+The search is:
+
+1. run the unchanged cavity cleaner across the full declared-continuous
+   acquisition;
+2. identify and rank cavity-good segments by duration;
+3. evaluate eta0 only inside cavity-good candidate segments that can still beat
+   the best final-good segment found so far;
+4. stop once the next unprocessed cavity-good segment is no longer than the
+   current best final-good result.
+
+For this optimized search only, the protected eta0 history is intentionally
+reset at the start of each cavity-good candidate segment and bootstrapped from
+that segment's first valid eta0 block mean. This is an explicit
+researcher-approved methodological choice for segment selection, not a hidden
+implementation detail.
+
+The eta0 equations, 0.05 s mean/minimum statistics, past-only q90, 80% lower
+cut, rejected-block exclusion, and held-reference behavior within each
+candidate segment remain unchanged.
+
 ## FULL CALIBRATION GATE
 Full rho_X/rho_Y calibration is allowed only where final_good is true.
 
