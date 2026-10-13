@@ -29,6 +29,15 @@ For uniformly sampled synchronized channels, the object stores (t_0),
 irregular, the actual relative timestamps are retained and no fake uniform
 sample rate is assigned.
 
+For production selection of the longest usable segment, the pipeline uses a
+cavity-first ranked search. Cavity cleaning is evaluated across the full
+continuous acquisition first. Eta0 is then calibrated only inside cavity-good
+candidates that can still become the longest final segment. The protected eta0
+reference is reset and bootstrapped at each candidate start, as explicitly
+approved for this efficient search. Candidates are evaluated longest-first and
+the search stops once no unprocessed cavity segment can exceed the current best
+surviving duration.
+
 The approved downstream order is now:
 
 ```text
