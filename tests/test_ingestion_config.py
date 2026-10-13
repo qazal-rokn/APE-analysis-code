@@ -28,7 +28,7 @@ cleaning:
   reference_quantile: 0.90
   refinement_iterations: 3
   cavity_lower_fraction: 0.90
-  eta0_lower_fraction: 0.90
+  eta0_lower_fraction: 0.80
 calibration:
   cavity_transmission_w_per_v: 0.020
   responsivity_a_per_w: 0.7
@@ -54,7 +54,7 @@ class DXDConfigTests(unittest.TestCase):
         self.assertAlmostEqual(config.cleaning.reference_quantile, 0.90)
         self.assertEqual(config.cleaning.refinement_iterations, 3)
         self.assertAlmostEqual(config.cleaning.cavity_lower_fraction, 0.90)
-        self.assertAlmostEqual(config.cleaning.eta0_lower_fraction, 0.90)
+        self.assertAlmostEqual(config.cleaning.eta0_lower_fraction, 0.80)
         self.assertAlmostEqual(config.calibration.cavity_transmission_w_per_v, 0.020)
         self.assertAlmostEqual(config.calibration.second_harmonic_pd_response, 0.7)
 
