@@ -148,6 +148,18 @@ unchanged.
 This reset-at-candidate-start rule is an explicit researcher-approved
 optimization for longest-segment selection.
 
+## Efficient candidate-segment convention
+
+For the longest-segment search, cavity cleaning is first applied over the full
+acquisition. Cavity-good segments are ranked by duration. Eta0 cleaning is then
+performed only on candidate segments that can still exceed the current best
+surviving segment.
+
+At the start of each candidate segment, the protected eta0 history is reset.
+The first valid eta0 block mean in that candidate bootstraps
+\(\eta_{{\rm ref}}\). This candidate-boundary reset is the approved
+convention for the efficient search.
+
 The final mask is
 
 [
