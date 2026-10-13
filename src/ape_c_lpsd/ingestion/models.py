@@ -104,6 +104,35 @@ class APECavityChunk:
 
 
 @dataclass(frozen=True)
+class APEEtaChunk:
+    """One bounded-memory chunk containing only channels needed for eta0."""
+
+    source_file: Path
+    start_index: int
+    stop_index: int
+    sample_rate_hz: float
+    x_2f: np.ndarray
+    y_2f: np.ndarray
+    cavity_transmission: np.ndarray
+    first_timestamp_s: float
+    last_timestamp_s: float
+
+    def __post_init__(self) -> None:
+        count = self.stop_index - self.start_index
+        if self.start_index < 0 or count <= 0:
+            raise ValueError("invalid eta0 chunk interval")
+        arrays = (self.x_2f, self.y_2f, self.cavity_transmission)
+        if any(np.asarray(values).shape != (count,) for values in arrays):
+            raise ValueError("eta0 chunk channels must match the chunk interval")
+        if self.sample_rate_hz <= 0:
+            raise ValueError("eta0 chunk sample rate must be positive")
+
+    @property
+    def n_samples(self) -> int:
+        return self.stop_index - self.start_index
+
+
+@dataclass(frozen=True)
 class APECalibratedChunk:
     """Calibrated observables for one raw APE chunk."""
 
