@@ -84,10 +84,11 @@ approved for this optimized selection workflow. Candidate evaluation stops
 when the remaining cavity-good segments are too short to win.
 
 The cavity quality reference is constructed across the full record at 0.05 s
-resolution so its centered window does not reset at raw reader chunk
-boundaries. The eta0 quality state is also continuous across declared
-continuous file/chunk boundaries: its previous-60-s accepted history is not
-reset there. The raw science channels remain bounded-memory and chunked.
+resolution so its centered window does not reset at raw reader chunk or file
+boundaries. Cavity-good segments are then ranked by duration. Protected eta0
+cleaning is evaluated only for candidates that can still beat the current best
+final-good segment. Each cavity-good candidate starts a fresh eta0 protected
+history; file boundaries inside one candidate do not reset it. The raw science channels remain bounded-memory and chunked.
 Reduced statistics define quality only; they are not substituted for the raw
 science samples used later in calibration and spectral estimation.
 
