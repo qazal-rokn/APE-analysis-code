@@ -151,6 +151,26 @@ The eta0 equations, 0.05 s mean/minimum statistics, past-only q90, 80% lower
 cut, rejected-block exclusion, and held-reference behavior within each
 candidate segment remain unchanged.
 
+## EFFICIENT LONGEST-SEGMENT SEARCH
+
+For the production longest-segment search, the approved computational order is:
+
+    full 42 h -> cavity-only cleaning -> rank cavity-good segments
+              -> eta0 cleaning only on candidates that can still win.
+
+For this efficient search only, the protected eta0 history is intentionally
+reset at the start of each cavity-good candidate segment. The first valid eta0
+block mean inside that candidate bootstraps the reference. This is an explicit
+researcher-approved change from carrying eta0 history continuously across the
+entire acquisition.
+
+Candidate segments are processed from longest to shortest. After eta0 cleaning,
+if the longest surviving final-good subsegment is at least as long as the
+maximum possible duration of every unprocessed cavity-good candidate, the
+search stops. An unprocessed candidate cannot become longer after eta0 cleaning,
+so this stopping rule preserves the correct longest-segment choice under the
+approved candidate-reset convention.
+
 ## FULL CALIBRATION GATE
 Full rho_X/rho_Y calibration is allowed only where final_good is true.
 
