@@ -18,16 +18,20 @@ channels:
   cavity_transmission: cavity_trans
 
 # Reduced-block cleaning adapted from the validated earlier APE quality code.
-# Cavity: local q90 of 0.05 s block averages, tested with block minimum.
-# eta0: local q90 of 0.05 s reduced-record eta0, tested with eta0 itself.
-# Both references are refined three times and use one-sided 90% lower cuts.
+# Cavity (unchanged): centered local q90 of 0.05 s block averages, tested with
+# block minimum; three refinement iterations and a one-sided 90% lower cut.
+# eta0: calibrate every raw sample first, then use the 0.05 s eta0 block mean
+# to build a past-only q90 from previously accepted cavity-good/eta-good blocks.
+# The 0.05 s eta0 block minimum is tested against an 80% lower cut. Rejected
+# eta0 blocks never update the future reference; if the 60 s accepted-history
+# window empties, the last healthy eta0 reference is held.
 cleaning:
   block_size_seconds: 0.05
   reference_window_seconds: 60.0
   reference_quantile: 0.90
   refinement_iterations: 3
   cavity_lower_fraction: 0.90
-  eta0_lower_fraction: 0.90
+  eta0_lower_fraction: 0.80
 
 # These are run-specific calibration inputs, not universal APE constants.
 # Stage 1 records/validates them but does not yet apply calibration.
