@@ -78,6 +78,32 @@ class APEDXDChunk:
 
 
 @dataclass(frozen=True)
+class APECavityChunk:
+    """One bounded-memory chunk containing only cavity transmission."""
+
+    source_file: Path
+    start_index: int
+    stop_index: int
+    sample_rate_hz: float
+    cavity_transmission: np.ndarray
+    first_timestamp_s: float
+    last_timestamp_s: float
+
+    def __post_init__(self) -> None:
+        count = self.stop_index - self.start_index
+        if self.start_index < 0 or count <= 0:
+            raise ValueError("invalid cavity chunk interval")
+        if np.asarray(self.cavity_transmission).shape != (count,):
+            raise ValueError("cavity transmission must match the chunk interval")
+        if self.sample_rate_hz <= 0:
+            raise ValueError("cavity chunk sample rate must be positive")
+
+    @property
+    def n_samples(self) -> int:
+        return self.stop_index - self.start_index
+
+
+@dataclass(frozen=True)
 class APECalibratedChunk:
     """Calibrated observables for one raw APE chunk."""
 
