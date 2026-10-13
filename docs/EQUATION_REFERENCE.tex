@@ -120,6 +120,16 @@ reference is held if the accepted-history window becomes empty.  Candidate
 evaluation stops once the next unprocessed cavity-good segment is no longer
 than the current best final-good segment.
 
+\subsection*{Efficient longest-segment search convention}
+For production selection of the longest final-good interval, the cavity mask is
+computed over the complete acquisition first. Cavity-good intervals are ranked
+by duration, and the eta0 stage is evaluated only for candidate intervals that
+can still exceed the current best surviving interval. At each candidate start,
+the protected eta0 history is reset and the first valid eta0 block mean
+bootstraps $\eta_{{\rm ref}}$. Candidates are processed from longest to
+shortest, and evaluation stops when the best surviving interval is at least as
+long as every unprocessed cavity-good interval.
+
 \section*{Approved APE raw-to-calibrated chunk conversion}
 
 The recorded demodulated quadratures are treated as RMS voltages. For each
