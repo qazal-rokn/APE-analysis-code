@@ -14,10 +14,11 @@ from .dxd_reader import (
     inspect_dxd,
     iter_ape_dxd_cavity_chunks,
     iter_ape_dxd_chunks,
+    iter_ape_dxd_eta_chunks,
     iter_ape_dxd_range_chunks,
     read_ape_dxd,
 )
-from .models import APECalibratedChunk, APECavityChunk, APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
+from .models import APECalibratedChunk, APECavityChunk, APEEtaChunk, APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
 from .segments import (
     ValidRun,
     choose_global_longest,
@@ -29,6 +30,7 @@ from .reference_workflow import ReferenceWorkflow
 __all__ = [
     "APECalibratedChunk",
     "APECavityChunk",
+    "APEEtaChunk",
     "APEChannelNames",
     "APEDXDChunk",
     "APEDXDData",
@@ -46,6 +48,7 @@ __all__ = [
     "inspect_dxd",
     "iter_ape_dxd_cavity_chunks",
     "iter_ape_dxd_chunks",
+    "iter_ape_dxd_eta_chunks",
     "iter_ape_dxd_range_chunks",
     "load_dxd_ingestion_config",
     "load_ingestion_config",
