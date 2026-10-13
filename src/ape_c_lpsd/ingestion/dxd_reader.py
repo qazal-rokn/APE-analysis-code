@@ -13,7 +13,7 @@ from typing import Iterator, Mapping
 
 import numpy as np
 
-from .models import APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
+from .models import APECavityChunk, APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
 
 
 class DXDReaderError(RuntimeError):
@@ -351,6 +351,91 @@ def _assemble_chunk(
         last_timestamp_s=last_ts,
     )
     return chunk, last_ts
+
+
+def iter_ape_dxd_cavity_chunks(
+    input_file: str | Path,
+    *,
+    channel_names: Mapping[str, str],
+    wrapper_path: str | Path,
+    library_path: str | Path,
+    chunk_size_samples: int = 1_000_000,
+) -> Iterator[APECavityChunk]:
+    """Yield validated cavity-only chunks without reading the other raw arrays."""
+    if chunk_size_samples <= 1:
+        raise DXDReaderError("chunk_size_samples must be greater than 1")
+    with _DewesoftSession(
+        input_file,
+        channel_names=channel_names,
+        wrapper_path=wrapper_path,
+        library_path=library_path,
+    ) as session:
+        previous_last = None
+        for raw_start in range(0, session.n_samples, chunk_size_samples):
+            count = min(chunk_size_samples, session.n_samples - raw_start)
+            values, timestamps = session.read_role_chunk(
+                "cavity_transmission", raw_start, count
+            )
+            if not np.all(np.isfinite(values)):
+                raise DXDReaderError("cavity_transmission contains non-finite raw samples")
+            if not _timestamps_match_declared_rate(timestamps, session.sample_rate_hz):
+                raise DXDReaderError(
+                    "cavity chunk timestamps are inconsistent with Dewesoft declared "
+                    f"sample rate {session.sample_rate_hz} Hz"
+                )
+            first_ts = float(timestamps[0])
+            last_ts = float(timestamps[-1])
+            if previous_last is not None:
+                _validate_chunk_boundary(
+                    previous_last_timestamp_s=previous_last,
+                    current_first_timestamp_s=first_ts,
+                    sample_rate_hz=session.sample_rate_hz,
+                )
+            previous_last = last_ts
+            yield APECavityChunk(
+                source_file=session.source,
+                start_index=raw_start,
+                stop_index=raw_start + count,
+                sample_rate_hz=session.sample_rate_hz,
+                cavity_transmission=values,
+                first_timestamp_s=first_ts,
+                last_timestamp_s=last_ts,
+            )
+
+
+def iter_ape_dxd_range_chunks(
+    input_file: str | Path,
+    *,
+    channel_names: Mapping[str, str],
+    wrapper_path: str | Path,
+    library_path: str | Path,
+    start_index: int,
+    stop_index: int,
+    chunk_size_samples: int = 1_000_000,
+) -> Iterator[APEDXDChunk]:
+    """Yield synchronized five-channel chunks for one half-open raw index range."""
+    if chunk_size_samples <= 1:
+        raise DXDReaderError("chunk_size_samples must be greater than 1")
+    if start_index < 0 or stop_index <= start_index:
+        raise DXDReaderError("invalid requested DXD sample range")
+
+    with _DewesoftSession(
+        input_file,
+        channel_names=channel_names,
+        wrapper_path=wrapper_path,
+        library_path=library_path,
+    ) as session:
+        if stop_index > session.n_samples:
+            raise DXDReaderError(
+                f"requested stop_index={stop_index} exceeds file length {session.n_samples}"
+            )
+        previous_last = None
+        for raw_start in range(start_index, stop_index, chunk_size_samples):
+            count = min(chunk_size_samples, stop_index - raw_start)
+            chunk, previous_last = _assemble_chunk(
+                session, raw_start, count, previous_last
+            )
+            yield chunk
 
 
 def iter_ape_dxd_chunks(
