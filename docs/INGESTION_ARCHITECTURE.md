@@ -66,6 +66,14 @@ expand mask to original raw indices
 full rho_X / rho_Y calibration only on final-good samples
 ```
 
+For longest-segment selection, the implementation first computes the full
+cavity-only mask and ranks cavity-good segments by duration. Sample-level eta0
+is then calculated only inside candidate cavity-good segments that can still
+beat the current best final-good duration. The protected eta0 history is
+intentionally reset and bootstrapped at each candidate start, as explicitly
+approved for this optimized selection workflow. Candidate evaluation stops
+when the remaining cavity-good segments are too short to win.
+
 The cavity quality reference is constructed across the full record at 0.05 s
 resolution so its centered window does not reset at raw reader chunk
 boundaries. The eta0 quality state is also continuous across declared
