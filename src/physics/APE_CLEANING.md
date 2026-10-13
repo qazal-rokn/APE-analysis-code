@@ -131,6 +131,23 @@ block passes again.
 At the beginning of the complete acquisition, the reference is bootstrapped
 from the first valid cavity-good eta0 block mean.
 
+## Efficient longest-segment selection
+
+When the analysis goal is specifically to identify the single longest
+continuous final-good segment, the full acquisition is first cleaned with the
+unchanged cavity criterion. Cavity-good segments are ranked by duration.
+
+Sample-level eta0 cleaning is then applied only to candidate cavity-good
+segments that remain capable of exceeding the current best final-good duration.
+For this candidate search, the protected eta0 history is reset at the beginning
+of each cavity-good candidate and bootstrapped from the first valid eta0 block
+mean in that candidate. Within the candidate, the approved past-only q90,
+80 percent lower cut, rejected-block exclusion, and held-reference rule are
+unchanged.
+
+This reset-at-candidate-start rule is an explicit researcher-approved
+optimization for longest-segment selection.
+
 The final mask is
 
 [
