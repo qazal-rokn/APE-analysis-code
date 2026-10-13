@@ -445,8 +445,15 @@ def iter_ape_dxd_chunks(
     wrapper_path: str | Path,
     library_path: str | Path,
     chunk_size_samples: int = 1_000_000,
+    start_index: int | None = None,
+    stop_index: int | None = None,
 ) -> Iterator[APEDXDChunk]:
-    """Yield synchronized validated chunks without retaining the full file."""
+    """Yield synchronized validated chunks without retaining the full file.
+
+    Optional start_index/stop_index select a half-open raw-sample range inside
+    the file. They are intended for efficient re-reading of candidate segments
+    after a whole-record cavity-quality pass.
+    """
     if chunk_size_samples <= 1:
         raise DXDReaderError("chunk_size_samples must be greater than 1")
     with _DewesoftSession(
@@ -455,9 +462,16 @@ def iter_ape_dxd_chunks(
         wrapper_path=wrapper_path,
         library_path=library_path,
     ) as session:
+        start = 0 if start_index is None else int(start_index)
+        stop = session.n_samples if stop_index is None else int(stop_index)
+        if start < 0 or stop < 0 or start > stop or stop > session.n_samples:
+            raise DXDReaderError(
+                f"invalid requested sample range [{start}, {stop}) for "
+                f"file length {session.n_samples}"
+            )
         previous_last = None
-        for raw_start in range(0, session.n_samples, chunk_size_samples):
-            count = min(chunk_size_samples, session.n_samples - raw_start)
+        for raw_start in range(start, stop, chunk_size_samples):
+            count = min(chunk_size_samples, stop - raw_start)
             chunk, previous_last = _assemble_chunk(
                 session, raw_start, count, previous_last
             )
