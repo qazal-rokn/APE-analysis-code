@@ -30,67 +30,62 @@ irregular, the actual relative timestamps are retained and no fake uniform
 sample rate is assigned.
 
 For production selection of the longest usable segment, the pipeline uses a
-cavity-first ranked search. Cavity cleaning is evaluated across the full
-continuous acquisition first. Eta0 is then calibrated only inside cavity-good
-candidates that can still become the longest final segment. The protected eta0
-reference is reset and bootstrapped at each candidate start, as explicitly
-approved for this efficient search. Candidates are evaluated longest-first and
-the search stops once no unprocessed cavity segment can exceed the current best
-surviving duration.
-
-The approved downstream order is now:
+cavity-first ranked search.
 
 ```text
-validated raw DXD chunks
+full declared-continuous acquisition
         |
         v
-0.05 s reduced records
+read cavity transmission only
         |
         v
-cavity average -> centered 60 s q90 reference
-cavity minimum -> 90% lower decision, 3 refinements
+0.05 s cavity mean/minimum
         |
         v
-production cavity-good mask
+centered 60 s cavity q90
+90% lower cut, 3 refinements
         |
         v
-sample-level eta0 from X2f/Y2f/cavity transmission
+rank cavity-good segments by duration
         |
         v
-0.05 s eta0 mean + eta0 minimum
+read all five raw channels only for the longest candidate
         |
         v
-past-only 60 s q90 from previously accepted eta0 means
-eta0 minimum -> 80% lower decision
-failed eta0 blocks do not update reference
-hold last healthy reference if accepted-history window empties
+sample-level eta0
         |
         v
-final good reduced-record mask
+0.05 s eta0 mean/minimum
         |
         v
-expand mask to original raw indices
+past-only accepted-history q90
+80% eta0-minimum lower cut
         |
         v
-full rho_X / rho_Y calibration only on final-good samples
+longest surviving eta0-good subsegment
+        |
+        v
+evaluate next cavity candidate only if it can still win
 ```
 
-For longest-segment selection, the implementation first computes the full
-cavity-only mask and ranks cavity-good segments by duration. Sample-level eta0
-is then calculated only inside candidate cavity-good segments that can still
-beat the current best final-good duration. The protected eta0 history is
-intentionally reset and bootstrapped at each candidate start, as explicitly
-approved for this optimized selection workflow. Candidate evaluation stops
-when the remaining cavity-good segments are too short to win.
+Eta0 protected-reference state is reset and bootstrapped at each cavity-good
+segment start. It is not reset merely because a candidate crosses a declared-
+continuous DXD file boundary. Failed eta0 blocks do not update the reference;
+if the accepted-history window empties during a sustained eta0 failure, the
+last healthy reference is held.
 
-The cavity quality reference is constructed across the full record at 0.05 s
-resolution so its centered window does not reset at raw reader chunk or file
-boundaries. Cavity-good segments are then ranked by duration. Protected eta0
-cleaning is evaluated only for candidates that can still beat the current best
-final-good segment. Each cavity-good candidate starts a fresh eta0 protected
-history; file boundaries inside one candidate do not reset it. The raw science channels remain bounded-memory and chunked.
-Reduced statistics define quality only; they are not substituted for the raw
-science samples used later in calibration and spectral estimation.
+The cavity-only pass reads only the cavity transmission channel. Full
+X1f/Y1f/X2f/Y2f/cavity data are read later only over candidate raw sample
+ranges. This reduces I/O and avoids sample-level eta0 calibration across data
+that cannot belong to the final longest segment.
+
+The stopping rule is exact under the approved candidate-reset convention:
+once the current best final-good duration is at least as long as the next
+unprocessed cavity-good candidate, no later candidate can win because eta0
+cleaning can only shorten it.
+
+Raw science channels remain bounded-memory and are never interpolated,
+resampled, smoothed, or gap-filled by this selection stage.
 
 ## Legacy/reference ingestion and segment selection
 
