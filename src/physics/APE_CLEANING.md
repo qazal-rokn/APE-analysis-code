@@ -2,111 +2,145 @@
 
 Status: researcher approved.
 
-The cleaning architecture follows the earlier validated APE reduced-block
-cavity-quality method, with a researcher-approved relative eta0 rule replacing
-the historical fixed eta0 >= 0.019 threshold.
+The cavity stage follows the earlier validated reduced-block APE method
+unchanged. The eta0 stage uses the protected past-only reference validated on
+the 42 h APE data set.
 
 ## Reduced records
 
 The synchronized raw channels are partitioned into non-overlapping 0.05 s
-records. Each record carries its physical midpoint time.
+records with physical midpoint times (t_k).
 
 ## Cavity stage
 
-For record k define
+For record (k),
 
-\[
-\bar V_k = \operatorname{mean}(V_{\rm trans})
-\]
-
-and
-
-\[
+[
+\bar V_k = \operatorname{mean}(V_{\rm trans}),
+\qquad
 V_{\min,k} = \min(V_{\rm trans}).
-\]
+]
 
-The local cavity reference is the centered 60 s 90th percentile of eligible
-record averages:
+The centered 60 s local cavity reference is
 
-\[
-V_{\rm ref,k}
+[
+V_{{\rm ref},k}
 =
 Q_{0.90}\left(
-\{\bar V_j:\ |t_j-t_k|\le 30\,{\rm s}\}
+\{\bar V_j:\ |t_j-t_k|\le30\,{\rm s}\}
 \right).
-\]
+]
 
 The provisional cavity mask is
 
-\[
+[
 M_{{\rm cav},k}
 =
 \left[
-V_{\min,k}\ge 0.90 V_{\rm ref,k}
+V_{\min,k}\ge0.90V_{{\rm ref},k}
 \right].
-\]
+]
 
 The reference is recomputed from provisionally good records three times. The
 last refined reference defines the final cavity mask.
 
-## Preliminary eta0
+## Sample-level eta0
 
-For each reduced record,
+For every raw sample (n),
 
-\[
-\bar R_{2f,k}
+[
+I_0[n]=C_{\rm trans}V_{\rm trans}[n],
+]
+
+[
+R_{2f}[n]
 =
-\sqrt{\bar X_{2f,k}^{,2}+\bar Y_{2f,k}^{,2}},
-\]
-
-\[
-I_{0,k}=C_{\rm trans}\bar V_k,
-\]
+\sqrt{X_{2f}[n]^2+Y_{2f}[n]^2},
+]
 
 and
 
-\[
-\eta_{0,k}
+[
+\eta_0[n]
 =
 \sqrt{
-\frac{2\sqrt{2}\,\bar R_{2f,k}}
-{H_2 q G I_{0,k}}
+\frac{2\sqrt{2}\,R_{2f}[n]}
+{H_2qGI_0[n]}
 }.
-\]
+]
 
-Only cavity-good records are eligible to define the eta0 reference.
+For every 0.05 s block (k), define
 
-## Eta0 stage
+[
+\bar\eta_{0,k}
+=
+\operatorname{mean}\left(\eta_0[n]\right)_{n\in k},
+]
 
-The eta0 reference is
+and
 
-\[
+[
+\eta_{0,\min,k}
+=
+\min\left(\eta_0[n]\right)_{n\in k}.
+]
+
+Only cavity-good blocks can be eta0-good.
+
+## Protected eta0 reference
+
+The eta0 reference is past-only and uses only previously accepted block means:
+
+[
 \eta_{{\rm ref},k}
 =
-Q_{0.90}\left(
-\{\eta_{0,j}:\ |t_j-t_k|\le30\,{\rm s},\ M_{{\rm cav},j}=1\}
+Q_{0.90}
+\left(
+\left\{
+\bar\eta_{0,j}:
+t_k-60\,{\rm s}\le t_j<t_k, 
+M_{{\rm cav},j}=1, 
+M_{\eta,j}=1
+\right\}
 \right).
-\]
+]
 
-The provisional eta0 mask is
+The current block is never included in its own reference.
 
-\[
+The eta0 decision is
+
+[
 M_{\eta,k}
 =
 M_{{\rm cav},k}
 \land
 \left[
-\eta_{0,k}\ge0.90\eta_{{\rm ref},k}
+\eta_{0,\min,k}
+\ge
+0.80\,\eta_{{\rm ref},k}
 \right].
-\]
+]
 
-The eta0 reference is recomputed from provisionally eta0-good and cavity-good
-records three times. The final mask is
+Only accepted blocks update the future eta0 reference. A failed eta0 block is
+therefore unable to redefine a long failed state as normal.
 
-\[
-M_{{\rm final},k}=M_{{\rm cav},k}\land M_{\eta,k}.
-\]
+If the accepted-history window becomes empty during a sustained failure or
+cavity-bad interval, the last valid healthy eta0 reference is held until a
+block passes again.
 
-Every raw sample in record k inherits these masks. No samples are deleted or
-concatenated across rejected records. There is no interpolation, smoothing,
-gap filling, fallback reference, or upper-side quality cut.
+At the beginning of the complete acquisition, the reference is bootstrapped
+from the first valid cavity-good eta0 block mean.
+
+The final mask is
+
+[
+M_{{\rm final},k}
+=
+M_{{\rm cav},k}
+\land
+M_{\eta,k}.
+]
+
+Every raw sample in block (k) inherits these masks. No samples are deleted or
+concatenated across rejected blocks. There is no interpolation, smoothing, gap
+filling, or upper-side quality cut.
