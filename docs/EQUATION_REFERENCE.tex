@@ -78,8 +78,10 @@ M_{{\rm cav},k}\land
 \end{equation}
 Only accepted eta0 block means update the future reference. If the accepted
 history inside the preceding 60 s becomes empty, the last valid healthy eta0
-reference is held. At the beginning of the complete acquisition, the first
-valid cavity-good eta0 block mean bootstraps the reference.
+reference is held. For the efficient longest-segment search, each cavity-good candidate segment
+starts a fresh protected eta0 history. The first valid eta0 block mean in that
+segment bootstraps the reference. A file boundary alone does not reset the
+history if the same cavity-good segment crosses it.
 
 The final mask is
 \begin{equation}
