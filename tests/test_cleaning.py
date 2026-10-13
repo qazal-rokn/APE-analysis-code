@@ -1,4 +1,4 @@
-"""Synthetic validation for approved reduced-block q90 APE cleaning."""
+"""Synthetic validation for approved cavity + protected-eta0 APE cleaning."""
 from pathlib import Path
 import unittest
 
@@ -23,7 +23,7 @@ class CleaningTests(unittest.TestCase):
             reference_quantile=0.90,
             refinement_iterations=3,
             cavity_lower_fraction=0.90,
-            eta0_lower_fraction=0.90,
+            eta0_lower_fraction=0.80,
         )
         self.calibration = CalibrationConfig(
             cavity_transmission_w_per_v=0.020,
@@ -118,6 +118,60 @@ class CleaningTests(unittest.TestCase):
         safe[cavity_glitch] = False
         safe[eta_glitch] = False
         self.assertGreater(np.mean(result.eta_good[safe]), 0.99)
+
+    def test_eta0_decision_uses_sample_level_block_minimum(self):
+        chunk, _, _ = self._chunk()
+        x2 = chunk.x_2f.copy()
+
+        # One deep eta0 sample should reject its whole reduced block even though
+        # the block-mean eta0 remains close to nominal.
+        target = 5000
+        x2[target] *= 0.04
+        changed = APEDXDChunk(
+            source_file=chunk.source_file,
+            start_index=chunk.start_index,
+            stop_index=chunk.stop_index,
+            sample_rate_hz=chunk.sample_rate_hz,
+            x_1f=chunk.x_1f,
+            y_1f=chunk.y_1f,
+            x_2f=x2,
+            y_2f=chunk.y_2f,
+            cavity_transmission=chunk.cavity_transmission,
+            first_timestamp_s=chunk.first_timestamp_s,
+            last_timestamp_s=chunk.last_timestamp_s,
+        )
+        result = clean_chunk(changed, self.cleaning, self.calibration)
+        block = slice(5000, 5100)
+        self.assertFalse(np.any(result.eta_good[block]))
+
+    def test_sustained_eta0_collapse_cannot_redefine_reference(self):
+        chunk, _, _ = self._chunk()
+        x2 = chunk.x_2f.copy()
+
+        # 25 s is longer than the 20 s protected-history window used in this
+        # synthetic test. The failed state must remain rejected throughout,
+        # rather than becoming its own local reference.
+        collapse = slice(5000, 7500)
+        x2[collapse] *= 0.01
+        changed = APEDXDChunk(
+            source_file=chunk.source_file,
+            start_index=chunk.start_index,
+            stop_index=chunk.stop_index,
+            sample_rate_hz=chunk.sample_rate_hz,
+            x_1f=chunk.x_1f,
+            y_1f=chunk.y_1f,
+            x_2f=x2,
+            y_2f=chunk.y_2f,
+            cavity_transmission=chunk.cavity_transmission,
+            first_timestamp_s=chunk.first_timestamp_s,
+            last_timestamp_s=chunk.last_timestamp_s,
+        )
+        result = clean_chunk(changed, self.cleaning, self.calibration)
+
+        self.assertTrue(np.all(result.cavity_good[collapse]))
+        self.assertFalse(np.any(result.eta_good[collapse]))
+        self.assertTrue(np.all(result.eta_good[7500:7900]))
+        self.assertGreater(np.nanmedian(result.eta0_reference[collapse]), 0.015)
 
     def test_full_record_reference_plan_crosses_chunk_boundaries(self):
         whole, cavity_glitch, eta_glitch = self._chunk()
