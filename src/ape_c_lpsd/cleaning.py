@@ -64,6 +64,24 @@ class APECavityReferencePlan:
 
 
 @dataclass(frozen=True)
+class APEEtaSegmentPlan:
+    """Eta0 quality plan for one cavity-good candidate segment."""
+
+    sample_rate_hz: float
+    start_index: int
+    stop_index: int
+    block_samples: int
+    block_start_indices: np.ndarray
+    block_stop_indices: np.ndarray
+    block_midpoint_s: np.ndarray
+    eta0_average_blocks: np.ndarray
+    eta0_minimum_blocks: np.ndarray
+    eta0_reference_blocks: np.ndarray
+    eta0_good_blocks: np.ndarray
+    metadata: dict[str, object]
+
+
+@dataclass(frozen=True)
 class APECleaningReferencePlan:
     """Full-record reduced-block quality plan."""
 
@@ -423,7 +441,7 @@ def _reduce_chunk_cavity_blocks(
     chunk: APEDXDChunk,
     block_samples: int,
 ) -> tuple[np.ndarray, ...]:
-    """Reduce only cavity transmission; deliberately avoids eta0 calibration."""
+    """Vectorized cavity-only block reduction; no eta0 calibration."""
     if chunk.start_index % block_samples != 0:
         raise CleaningError("chunk starts must align to reduced cleaning blocks")
     n_blocks = (chunk.n_samples + block_samples - 1) // block_samples
@@ -436,13 +454,19 @@ def _reduce_chunk_cavity_blocks(
     cavity_min = np.full(n_blocks, np.nan, dtype=np.float64)
     v = np.asarray(chunk.cavity_transmission, dtype=np.float64)
 
-    for b in range(n_blocks):
-        lo = b * block_samples
-        hi = min(chunk.n_samples, lo + block_samples)
-        vb = v[lo:hi]
+    n_full = chunk.n_samples // block_samples
+    full_stop = n_full * block_samples
+    if n_full:
+        vb = v[:full_stop].reshape(n_full, block_samples)
+        valid = np.all(np.isfinite(vb), axis=1)
+        cavity_avg[:n_full] = np.where(valid, np.mean(vb, axis=1), np.nan)
+        cavity_min[:n_full] = np.where(valid, np.min(vb, axis=1), np.nan)
+
+    if full_stop < chunk.n_samples:
+        vb = v[full_stop:]
         if vb.size and np.all(np.isfinite(vb)):
-            cavity_avg[b] = float(np.mean(vb))
-            cavity_min[b] = float(np.min(vb))
+            cavity_avg[-1] = float(np.mean(vb))
+            cavity_min[-1] = float(np.min(vb))
 
     return starts, stops, midpoints, cavity_avg, cavity_min
 
@@ -533,6 +557,99 @@ def build_cavity_reference_plan(
             "cavity_reference_statistic": "reduced-block average",
             "cavity_decision_statistic": "reduced-block minimum",
             "eta0_calculated": False,
+        },
+    )
+
+
+def build_eta0_segment_plan(
+    chunk_factory: Callable[[], Iterator[APEDXDChunk]],
+    cleaning: CleaningConfig,
+    calibration: CalibrationConfig,
+) -> APEEtaSegmentPlan:
+    """Clean eta0 inside one already cavity-good candidate segment.
+
+    The protected eta0 history is intentionally reset at the segment start,
+    using the first valid eta0 block mean as its bootstrap reference. This is
+    the researcher-approved efficient-search rule.
+    """
+    _validate_cleaning(cleaning)
+    _positive_finite_calibration(calibration)
+
+    starts_parts: list[np.ndarray] = []
+    stops_parts: list[np.ndarray] = []
+    time_parts: list[np.ndarray] = []
+    eta_avg_parts: list[np.ndarray] = []
+    eta_min_parts: list[np.ndarray] = []
+
+    fs: float | None = None
+    block_samples: int | None = None
+    expected_start: int | None = None
+    segment_start: int | None = None
+    segment_stop: int | None = None
+
+    for chunk in chunk_factory():
+        if fs is None:
+            fs = chunk.sample_rate_hz
+            block_samples = _samples_per_block(fs, cleaning.block_size_seconds)
+            expected_start = chunk.start_index
+            segment_start = chunk.start_index
+        if chunk.sample_rate_hz != fs:
+            raise CleaningError("sample rate changes across eta0 segment chunks")
+        if chunk.start_index != expected_start:
+            raise CleaningError("eta0 segment chunks must be contiguous and ordered")
+        if chunk.start_index % block_samples != 0:
+            raise CleaningError("eta0 segment chunk boundary is not block-aligned")
+
+        reduced = _reduce_chunk_blocks(chunk, block_samples, calibration)
+        starts_parts.append(reduced[0])
+        stops_parts.append(reduced[1])
+        time_parts.append(reduced[2])
+        eta_avg_parts.append(reduced[5])
+        eta_min_parts.append(reduced[6])
+        expected_start = chunk.stop_index
+        segment_stop = chunk.stop_index
+
+    if fs is None or block_samples is None or segment_start is None or segment_stop is None:
+        raise CleaningError("no chunks supplied for eta0 candidate segment")
+
+    starts = np.concatenate(starts_parts)
+    stops = np.concatenate(stops_parts)
+    timestamps = np.concatenate(time_parts)
+    eta_avg = np.concatenate(eta_avg_parts)
+    eta_min = np.concatenate(eta_min_parts)
+
+    if np.any(starts[1:] != stops[:-1]):
+        raise CleaningError("eta0 candidate reduced blocks contain a gap")
+
+    base = np.isfinite(eta_avg) & np.isfinite(eta_min)
+    eta_ref, eta_good = _protected_past_quantile_mask(
+        eta_avg,
+        eta_min,
+        timestamps,
+        base,
+        window_seconds=cleaning.reference_window_seconds,
+        quantile=cleaning.reference_quantile,
+        lower_fraction=cleaning.eta0_lower_fraction,
+    )
+
+    return APEEtaSegmentPlan(
+        sample_rate_hz=fs,
+        start_index=segment_start,
+        stop_index=segment_stop,
+        block_samples=block_samples,
+        block_start_indices=starts,
+        block_stop_indices=stops,
+        block_midpoint_s=timestamps,
+        eta0_average_blocks=eta_avg,
+        eta0_minimum_blocks=eta_min,
+        eta0_reference_blocks=eta_ref,
+        eta0_good_blocks=eta_good,
+        metadata={
+            "method": "ape_eta0_candidate_segment_reset_v1",
+            "segment_start_reference_policy": "reset and bootstrap from first valid eta0 block mean",
+            "reference_window_seconds": float(cleaning.reference_window_seconds),
+            "reference_quantile": float(cleaning.reference_quantile),
+            "eta0_lower_fraction": float(cleaning.eta0_lower_fraction),
         },
     )
 
