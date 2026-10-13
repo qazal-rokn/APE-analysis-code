@@ -104,5 +104,36 @@ class CalibrationTests(unittest.TestCase):
         self.assertTrue(np.isnan(out.eta0[1:]).all())
 
 
+class FrozenCalibrationSliceTests(unittest.TestCase):
+    def test_centered_validation_slice_maps_across_manifest_parts(self):
+        import importlib.util
+
+        module_path = Path(__file__).resolve().parents[1] / "tools" / "validate_frozen_segment_calibration.py"
+        spec = importlib.util.spec_from_file_location("validate_frozen_segment_calibration", module_path)
+        module = importlib.util.module_from_spec(spec)
+        assert spec is not None and spec.loader is not None
+        spec.loader.exec_module(module)
+
+        manifest = {
+            "sample_rate_hz": 10.0,
+            "sample_count": 100,
+            "parts": [
+                {"path": "a.dxd", "raw_start": 20, "raw_stop": 70},
+                {"path": "b.dxd", "raw_start": 0, "raw_stop": 50},
+            ],
+        }
+
+        start, stop, selected = module._slice_parts(manifest, duration_s=4.0)
+
+        self.assertEqual((start, stop), (30, 70))
+        self.assertEqual(
+            selected,
+            [
+                {"path": "a.dxd", "raw_start": 50, "raw_stop": 70},
+                {"path": "b.dxd", "raw_start": 0, "raw_stop": 20},
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
