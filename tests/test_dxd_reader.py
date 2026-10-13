@@ -11,7 +11,7 @@ from ape_c_lpsd.ingestion.dxd_reader import (
     _assemble_ape_data,
     _timestamps_match_declared_rate,
 )
-from ape_c_lpsd.ingestion.models import APEDXDChunk
+from ape_c_lpsd.ingestion.models import APECavityChunk, APEDXDChunk
 
 
 def _inputs(n: int = 1000, fs: float = 20000.0):
@@ -140,6 +140,19 @@ class DXDAssemblyTests(unittest.TestCase):
                 first_timestamp_s=0.0,
                 last_timestamp_s=9 / 20000.0,
             )
+
+    def test_cavity_chunk_model_reports_sample_count(self):
+        values = np.arange(10, dtype=np.float64)
+        chunk = APECavityChunk(
+            source_file=Path("synthetic.dxd"),
+            start_index=100,
+            stop_index=110,
+            sample_rate_hz=20000.0,
+            cavity_transmission=values,
+            first_timestamp_s=100 / 20000.0,
+            last_timestamp_s=109 / 20000.0,
+        )
+        self.assertEqual(chunk.n_samples, 10)
 
     def test_chunk_model_reports_sample_count(self):
         values = np.arange(10, dtype=np.float64)
