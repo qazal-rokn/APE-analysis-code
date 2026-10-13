@@ -47,6 +47,23 @@ class APECleaningResult:
 
 
 @dataclass(frozen=True)
+class APECavityReferencePlan:
+    """Full-record cavity-only reduced-block quality plan."""
+
+    sample_rate_hz: float
+    total_samples: int
+    block_samples: int
+    block_start_indices: np.ndarray
+    block_stop_indices: np.ndarray
+    block_midpoint_s: np.ndarray
+    cavity_average_blocks: np.ndarray
+    cavity_minimum_blocks: np.ndarray
+    cavity_reference_blocks: np.ndarray
+    cavity_good_blocks: np.ndarray
+    metadata: dict[str, object]
+
+
+@dataclass(frozen=True)
 class APECleaningReferencePlan:
     """Full-record reduced-block quality plan."""
 
@@ -376,6 +393,124 @@ def _reduce_chunk_blocks(
             eta0_min[b] = float(np.min(eb))
 
     return starts, stops, midpoints, cavity_avg, cavity_min, eta0_avg, eta0_min
+
+
+def _reduce_chunk_cavity_blocks(
+    chunk: APEDXDChunk,
+    block_samples: int,
+) -> tuple[np.ndarray, ...]:
+    """Reduce only cavity transmission; deliberately avoids eta0 calibration."""
+    if chunk.start_index % block_samples != 0:
+        raise CleaningError("chunk starts must align to reduced cleaning blocks")
+    n_blocks = (chunk.n_samples + block_samples - 1) // block_samples
+
+    starts = chunk.start_index + np.arange(n_blocks, dtype=np.int64) * block_samples
+    stops = np.minimum(starts + block_samples, chunk.stop_index)
+    midpoints = (starts + stops) / (2.0 * chunk.sample_rate_hz)
+
+    cavity_avg = np.full(n_blocks, np.nan, dtype=np.float64)
+    cavity_min = np.full(n_blocks, np.nan, dtype=np.float64)
+    v = np.asarray(chunk.cavity_transmission, dtype=np.float64)
+
+    for b in range(n_blocks):
+        lo = b * block_samples
+        hi = min(chunk.n_samples, lo + block_samples)
+        vb = v[lo:hi]
+        if vb.size and np.all(np.isfinite(vb)):
+            cavity_avg[b] = float(np.mean(vb))
+            cavity_min[b] = float(np.min(vb))
+
+    return starts, stops, midpoints, cavity_avg, cavity_min
+
+
+def build_cavity_reference_plan(
+    chunk_factory: Callable[[], Iterator[APEDXDChunk]],
+    cleaning: CleaningConfig,
+) -> APECavityReferencePlan:
+    """Build the approved cavity mask without calculating sample-level eta0."""
+    _validate_cleaning(cleaning)
+
+    starts_parts: list[np.ndarray] = []
+    stops_parts: list[np.ndarray] = []
+    time_parts: list[np.ndarray] = []
+    cavity_avg_parts: list[np.ndarray] = []
+    cavity_min_parts: list[np.ndarray] = []
+
+    fs: float | None = None
+    block_samples: int | None = None
+    expected_start = 0
+    saw_chunk = False
+
+    for chunk in chunk_factory():
+        saw_chunk = True
+        if fs is None:
+            fs = chunk.sample_rate_hz
+            block_samples = _samples_per_block(fs, cleaning.block_size_seconds)
+        if chunk.sample_rate_hz != fs:
+            raise CleaningError("sample rate changes across cleaning chunks")
+        if chunk.start_index != expected_start:
+            raise CleaningError("cleaning chunks must be contiguous and ordered")
+        if chunk.start_index % block_samples != 0:
+            raise CleaningError("cleaning chunk boundary is not block-aligned")
+
+        reduced = _reduce_chunk_cavity_blocks(chunk, block_samples)
+        starts_parts.append(reduced[0])
+        stops_parts.append(reduced[1])
+        time_parts.append(reduced[2])
+        cavity_avg_parts.append(reduced[3])
+        cavity_min_parts.append(reduced[4])
+        expected_start = chunk.stop_index
+
+    if not saw_chunk or fs is None or block_samples is None:
+        raise CleaningError("no chunks supplied by chunk_factory")
+
+    starts = np.concatenate(starts_parts)
+    stops = np.concatenate(stops_parts)
+    timestamps = np.concatenate(time_parts)
+    cavity_avg = np.concatenate(cavity_avg_parts)
+    cavity_min = np.concatenate(cavity_min_parts)
+
+    if starts.size:
+        if np.any(starts[1:] < stops[:-1]):
+            raise CleaningError("reduced cleaning blocks overlap")
+        if np.any(starts[1:] != stops[:-1]):
+            raise CleaningError("reduced cleaning blocks contain a gap")
+
+    cavity_base = np.isfinite(cavity_avg)
+    cavity_reference, cavity_good = _refined_mask(
+        cavity_avg,
+        cavity_min,
+        timestamps,
+        cavity_base,
+        window_seconds=cleaning.reference_window_seconds,
+        quantile=cleaning.reference_quantile,
+        lower_fraction=cleaning.cavity_lower_fraction,
+        refinement_iterations=cleaning.refinement_iterations,
+    )
+
+    return APECavityReferencePlan(
+        sample_rate_hz=fs,
+        total_samples=expected_start,
+        block_samples=block_samples,
+        block_start_indices=starts,
+        block_stop_indices=stops,
+        block_midpoint_s=timestamps,
+        cavity_average_blocks=cavity_avg,
+        cavity_minimum_blocks=cavity_min,
+        cavity_reference_blocks=cavity_reference,
+        cavity_good_blocks=cavity_good,
+        metadata={
+            "method": "ape_cavity_only_reduced_q90_refined_v1",
+            "block_size_seconds": float(cleaning.block_size_seconds),
+            "reference_window_seconds": float(cleaning.reference_window_seconds),
+            "reference_quantile": float(cleaning.reference_quantile),
+            "refinement_iterations": int(cleaning.refinement_iterations),
+            "cavity_lower_fraction": float(cleaning.cavity_lower_fraction),
+            "cavity_reference_statistic": "reduced-block average",
+            "cavity_decision_statistic": "reduced-block minimum",
+            "eta0_calculated": False,
+        },
+    )
 
 
 def build_cleaning_reference_plan(
