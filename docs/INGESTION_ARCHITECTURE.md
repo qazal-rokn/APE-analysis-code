@@ -87,6 +87,29 @@ cleaning can only shorten it.
 Raw science channels remain bounded-memory and are never interpolated,
 resampled, smoothed, or gap-filled by this selection stage.
 
+## Frozen calibrated HDF5 product
+
+After the frozen segment is selected, production calibration reads only the
+manifest-listed raw slices, in order, and applies
+`ape_rms_quadrature_calibration_v1` chunk by chunk. The canonical calibrated
+product is one HDF5 file with four aligned float64 datasets:
+
+- `i0_w`
+- `eta0`
+- `rho_x`
+- `rho_y`
+
+The HDF5 root metadata records sample rate, sample count, frozen-manifest
+SHA-256, source parts, calibration constants, calibration method, and code
+commit. X and Y remain separate. This stage applies no filtering, detrending,
+resampling, interpolation, smoothing, or X/Y combination.
+
+Production writing is transactional: data are first written to a temporary
+partial file; the final HDF5 path appears only after every manifest sample has
+been calibrated, every calibrated sample is finite, the total length matches
+the frozen manifest, and the product-level checks pass. Existing output files
+are never overwritten.
+
 ## Legacy/reference ingestion and segment selection
 
 The earlier chronology/quality-review architecture remains available for
