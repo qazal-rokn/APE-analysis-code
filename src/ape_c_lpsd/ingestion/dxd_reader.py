@@ -13,7 +13,7 @@ from typing import Iterator, Mapping
 
 import numpy as np
 
-from .models import APECavityChunk, APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
+from .models import APECavityChunk, APEEtaChunk, APEDXDChunk, APEDXDData, APEDXDInspection, APEDXDMetadata
 
 
 class DXDReaderError(RuntimeError):
@@ -398,6 +398,88 @@ def iter_ape_dxd_cavity_chunks(
                 stop_index=raw_start + count,
                 sample_rate_hz=session.sample_rate_hz,
                 cavity_transmission=values,
+                first_timestamp_s=first_ts,
+                last_timestamp_s=last_ts,
+            )
+
+
+def iter_ape_dxd_eta_chunks(
+    input_file: str | Path,
+    *,
+    channel_names: Mapping[str, str],
+    wrapper_path: str | Path,
+    library_path: str | Path,
+    start_index: int = 0,
+    stop_index: int | None = None,
+    chunk_size_samples: int = 1_000_000,
+) -> Iterator[APEEtaChunk]:
+    """Yield only X2f, Y2f, and cavity transmission for eta0 candidate cleaning."""
+    if chunk_size_samples <= 1:
+        raise DXDReaderError("chunk_size_samples must be greater than 1")
+
+    with _DewesoftSession(
+        input_file,
+        channel_names=channel_names,
+        wrapper_path=wrapper_path,
+        library_path=library_path,
+    ) as session:
+        start = int(start_index)
+        stop = session.n_samples if stop_index is None else int(stop_index)
+        if start < 0 or stop <= start or stop > session.n_samples:
+            raise DXDReaderError(
+                f"invalid requested eta0 sample range [{start}, {stop}) for "
+                f"file length {session.n_samples}"
+            )
+
+        previous_last = None
+        for raw_start in range(start, stop, chunk_size_samples):
+            count = min(chunk_size_samples, stop - raw_start)
+            arrays = {}
+            timestamps = {}
+            for role in ("x_2f", "y_2f", "cavity_transmission"):
+                arrays[role], timestamps[role] = session.read_role_chunk(
+                    role, raw_start, count
+                )
+
+            reference = np.asarray(timestamps["x_2f"], dtype=np.float64)
+            if not np.all(np.isfinite(reference)):
+                raise DXDReaderError("eta0 chunk contains non-finite timestamps")
+            for role in ("x_2f", "y_2f", "cavity_transmission"):
+                values = np.asarray(arrays[role], dtype=np.float64)
+                times = np.asarray(timestamps[role], dtype=np.float64)
+                if not np.all(np.isfinite(values)):
+                    raise DXDReaderError(f"{role} contains non-finite raw samples")
+                if times.shape != reference.shape or not np.allclose(
+                    times, reference, rtol=0.0, atol=1e-9
+                ):
+                    raise DXDReaderError(
+                        f"eta0 channels are not synchronized: x_2f vs {role}"
+                    )
+
+            if not _timestamps_match_declared_rate(reference, session.sample_rate_hz):
+                raise DXDReaderError(
+                    "eta0 chunk timestamps are inconsistent with Dewesoft declared "
+                    f"sample rate {session.sample_rate_hz} Hz"
+                )
+
+            first_ts = float(reference[0])
+            last_ts = float(reference[-1])
+            if previous_last is not None:
+                _validate_chunk_boundary(
+                    previous_last_timestamp_s=previous_last,
+                    current_first_timestamp_s=first_ts,
+                    sample_rate_hz=session.sample_rate_hz,
+                )
+            previous_last = last_ts
+
+            yield APEEtaChunk(
+                source_file=session.source,
+                start_index=raw_start,
+                stop_index=raw_start + count,
+                sample_rate_hz=session.sample_rate_hz,
+                x_2f=arrays["x_2f"],
+                y_2f=arrays["y_2f"],
+                cavity_transmission=arrays["cavity_transmission"],
                 first_timestamp_s=first_ts,
                 last_timestamp_s=last_ts,
             )
