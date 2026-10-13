@@ -89,6 +89,37 @@ The historical fixed cut $\eta_0\ge0.019$ is not used. Every raw sample
 inherits the quality state of its reduced record. No interpolation, smoothing,
 gap filling, deletion, or concatenation across rejected records is performed.
 
+\section*{Approved efficient longest-segment search}
+
+For the task of selecting the single longest continuous final-good segment, the
+full acquisition is first processed with the unchanged cavity criterion.
+Cavity-good segments are ranked by duration.  Sample-level $\eta_0$ cleaning is
+then evaluated only for candidate cavity-good segments whose duration can still
+exceed the best final-good duration already found.
+
+For this optimized candidate search, the protected $\eta_0$ history is reset at
+the beginning of each cavity-good candidate segment and bootstrapped from the
+first valid $\eta_0$ block mean in that segment.  Within each candidate, the
+approved equations and decision remain
+\begin{equation}
+\eta_{{\rm ref},k}
+=
+Q_{0.90}\left(
+\{\bar\eta_{0,j}: t_k-60\,{\rm s}\le t_j<t_k,\ M_{\eta,j}=1\}
+\right),
+\end{equation}
+\begin{equation}
+M_{\eta,k}
+=
+\left[
+\eta_{0,\min,k}\ge0.80\,\eta_{{\rm ref},k}
+\right].
+\end{equation}
+Rejected blocks do not update the reference, and the last valid healthy
+reference is held if the accepted-history window becomes empty.  Candidate
+evaluation stops once the next unprocessed cavity-good segment is no longer
+than the current best final-good segment.
+
 \section*{Approved APE raw-to-calibrated chunk conversion}
 
 The recorded demodulated quadratures are treated as RMS voltages. For each
