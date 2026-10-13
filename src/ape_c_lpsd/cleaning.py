@@ -14,7 +14,7 @@ Eta0 stage:
   eta0 block means;
 - test the eta0 block minimum against the configured lower fraction;
 - rejected eta0 blocks never update the future reference;
-- if the accepted-history window empties, hold the last healthy reference.
+- if the accepted-history window empties inside a cavity-good segment, hold the last healthy reference;\n- reset eta0 reference state at the start of each cavity-good segment.
 
 Masks are expanded back to raw-sample indices. No interpolation, smoothing,
 gap filling, sample deletion, or X/Y science-quadrature combination occurs.
@@ -344,6 +344,69 @@ def _protected_past_quantile_mask(
         if left > 4096 and left > len(history) // 2:
             history = history[left:]
             left = 0
+
+    return refs, good
+
+
+
+def _protected_past_quantile_mask_by_segments(
+    reference_values: np.ndarray,
+    decision_values: np.ndarray,
+    timestamps_s: np.ndarray,
+    base_eligible: np.ndarray,
+    segment_mask: np.ndarray,
+    *,
+    window_seconds: float,
+    quantile: float,
+    lower_fraction: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Apply the protected eta0 reference independently in each cavity-good run.
+
+    This implements the researcher-approved efficient-search rule: eta0 state is
+    reset at the beginning of every cavity-good candidate segment. Within a
+    segment, rejected/invalid eta0 blocks do not update the reference and the
+    last healthy reference is held.
+    """
+    reference_values = np.asarray(reference_values, dtype=np.float64)
+    decision_values = np.asarray(decision_values, dtype=np.float64)
+    timestamps_s = np.asarray(timestamps_s, dtype=np.float64)
+    base_eligible = np.asarray(base_eligible, dtype=bool)
+    segment_mask = np.asarray(segment_mask, dtype=bool)
+
+    if (
+        reference_values.ndim != 1
+        or decision_values.shape != reference_values.shape
+        or timestamps_s.shape != reference_values.shape
+        or base_eligible.shape != reference_values.shape
+        or segment_mask.shape != reference_values.shape
+    ):
+        raise CleaningError("segmented protected-reference arrays must be aligned")
+
+    refs = np.full(reference_values.shape, np.nan, dtype=np.float64)
+    good = np.zeros(reference_values.shape, dtype=bool)
+
+    idx = np.flatnonzero(segment_mask)
+    if idx.size == 0:
+        return refs, good
+
+    split = np.flatnonzero(np.diff(idx) > 1)
+    run_first = np.concatenate(([0], split + 1))
+    run_last = np.concatenate((split, [idx.size - 1]))
+
+    for first_pos, last_pos in zip(run_first, run_last):
+        lo = int(idx[first_pos])
+        hi = int(idx[last_pos]) + 1
+        sub_refs, sub_good = _protected_past_quantile_mask(
+            reference_values[lo:hi],
+            decision_values[lo:hi],
+            timestamps_s[lo:hi],
+            base_eligible[lo:hi],
+            window_seconds=window_seconds,
+            quantile=quantile,
+            lower_fraction=lower_fraction,
+        )
+        refs[lo:hi] = sub_refs
+        good[lo:hi] = sub_good
 
     return refs, good
 
@@ -730,11 +793,12 @@ def build_cleaning_reference_plan(
     )
 
     eta_base = cavity_good & np.isfinite(eta0_avg) & np.isfinite(eta0_min)
-    eta_reference, eta_good = _protected_past_quantile_mask(
+    eta_reference, eta_good = _protected_past_quantile_mask_by_segments(
         eta0_avg,
         eta0_min,
         timestamps,
         eta_base,
+        cavity_good,
         window_seconds=cleaning.reference_window_seconds,
         quantile=cleaning.reference_quantile,
         lower_fraction=cleaning.eta0_lower_fraction,
@@ -864,244 +928,6 @@ def clean_chunk_with_plan(
         cavity_reference=cavity_reference,
         eta0_reference=eta0_reference,
         metadata=dict(plan.metadata),
-    )
-
-
-@dataclass(frozen=True)
-class APECavityReferencePlan:
-    """Full-record cavity-only reduced-block quality plan."""
-
-    sample_rate_hz: float
-    total_samples: int
-    block_samples: int
-    block_start_indices: np.ndarray
-    block_stop_indices: np.ndarray
-    block_midpoint_s: np.ndarray
-    cavity_average_blocks: np.ndarray
-    cavity_minimum_blocks: np.ndarray
-    cavity_reference_blocks: np.ndarray
-    cavity_good_blocks: np.ndarray
-
-
-@dataclass(frozen=True)
-class APEEta0SegmentPlan:
-    """Protected eta0 plan for one cavity-good candidate segment."""
-
-    sample_rate_hz: float
-    total_samples: int
-    block_samples: int
-    block_start_indices: np.ndarray
-    block_stop_indices: np.ndarray
-    block_midpoint_s: np.ndarray
-    eta0_average_blocks: np.ndarray
-    eta0_minimum_blocks: np.ndarray
-    eta0_reference_blocks: np.ndarray
-    eta0_good_blocks: np.ndarray
-
-
-def _reduce_values_mean_min(
-    values: np.ndarray,
-    block_samples: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Vectorized finite-only block mean/min reduction with partial tail support."""
-    values = np.asarray(values, dtype=np.float64)
-    n = values.size
-    n_blocks = (n + block_samples - 1) // block_samples
-    means = np.full(n_blocks, np.nan, dtype=np.float64)
-    minima = np.full(n_blocks, np.nan, dtype=np.float64)
-
-    full = n // block_samples
-    if full:
-        matrix = values[: full * block_samples].reshape(full, block_samples)
-        finite = np.all(np.isfinite(matrix), axis=1)
-        if np.any(finite):
-            means[:full][finite] = np.mean(matrix[finite], axis=1)
-            minima[:full][finite] = np.min(matrix[finite], axis=1)
-
-    if n % block_samples:
-        tail = values[full * block_samples :]
-        if np.all(np.isfinite(tail)):
-            means[full] = float(np.mean(tail))
-            minima[full] = float(np.min(tail))
-
-    return means, minima
-
-
-def build_cavity_reference_plan(
-    chunk_factory: Callable[[], Iterator[APEDXDChunk]],
-    cleaning: CleaningConfig,
-) -> APECavityReferencePlan:
-    """Build the unchanged cavity cleaning plan without calculating eta0."""
-    _validate_cleaning(cleaning)
-
-    starts_parts: list[np.ndarray] = []
-    stops_parts: list[np.ndarray] = []
-    midpoint_parts: list[np.ndarray] = []
-    average_parts: list[np.ndarray] = []
-    minimum_parts: list[np.ndarray] = []
-
-    fs: float | None = None
-    block_samples: int | None = None
-    expected_start = 0
-    saw_chunk = False
-
-    for chunk in chunk_factory():
-        saw_chunk = True
-        if fs is None:
-            fs = chunk.sample_rate_hz
-            block_samples = _samples_per_block(fs, cleaning.block_size_seconds)
-        if chunk.sample_rate_hz != fs:
-            raise CleaningError("sample rate changes across cavity-cleaning chunks")
-        if chunk.start_index != expected_start:
-            raise CleaningError("cavity-cleaning chunks must be contiguous and ordered")
-        if chunk.start_index % block_samples != 0:
-            raise CleaningError("cavity-cleaning chunk boundary is not block-aligned")
-
-        n_blocks = (chunk.n_samples + block_samples - 1) // block_samples
-        starts = chunk.start_index + np.arange(n_blocks, dtype=np.int64) * block_samples
-        stops = np.minimum(starts + block_samples, chunk.stop_index)
-        midpoints = (starts + stops) / (2.0 * chunk.sample_rate_hz)
-        averages, minima = _reduce_values_mean_min(
-            chunk.cavity_transmission, block_samples
-        )
-
-        starts_parts.append(starts)
-        stops_parts.append(stops)
-        midpoint_parts.append(midpoints)
-        average_parts.append(averages)
-        minimum_parts.append(minima)
-        expected_start = chunk.stop_index
-
-    if not saw_chunk or fs is None or block_samples is None:
-        raise CleaningError("no chunks supplied by chunk_factory")
-
-    starts = np.concatenate(starts_parts)
-    stops = np.concatenate(stops_parts)
-    midpoints = np.concatenate(midpoint_parts)
-    averages = np.concatenate(average_parts)
-    minima = np.concatenate(minimum_parts)
-
-    if starts.size:
-        if np.any(starts[1:] != stops[:-1]):
-            raise CleaningError("reduced cavity-cleaning blocks contain a gap or overlap")
-
-    reference, good = _refined_mask(
-        averages,
-        minima,
-        midpoints,
-        np.isfinite(averages),
-        window_seconds=cleaning.reference_window_seconds,
-        quantile=cleaning.reference_quantile,
-        lower_fraction=cleaning.cavity_lower_fraction,
-        refinement_iterations=cleaning.refinement_iterations,
-    )
-
-    return APECavityReferencePlan(
-        sample_rate_hz=fs,
-        total_samples=expected_start,
-        block_samples=block_samples,
-        block_start_indices=starts,
-        block_stop_indices=stops,
-        block_midpoint_s=midpoints,
-        cavity_average_blocks=averages,
-        cavity_minimum_blocks=minima,
-        cavity_reference_blocks=reference,
-        cavity_good_blocks=good,
-    )
-
-
-def build_eta0_segment_plan(
-    chunk_factory: Callable[[], Iterator[APEDXDChunk]],
-    cleaning: CleaningConfig,
-    calibration: CalibrationConfig,
-) -> APEEta0SegmentPlan:
-    """Clean eta0 inside one already cavity-good candidate segment.
-
-    The protected eta0 state is intentionally reset at the beginning of each
-    candidate cavity-good segment, as explicitly approved by the researcher for
-    the efficient longest-segment search.
-    """
-    _validate_cleaning(cleaning)
-    _positive_finite_calibration(calibration)
-
-    starts_parts: list[np.ndarray] = []
-    stops_parts: list[np.ndarray] = []
-    midpoint_parts: list[np.ndarray] = []
-    average_parts: list[np.ndarray] = []
-    minimum_parts: list[np.ndarray] = []
-
-    fs: float | None = None
-    block_samples: int | None = None
-    expected_start: int | None = None
-    first_start: int | None = None
-
-    for chunk in chunk_factory():
-        if fs is None:
-            fs = chunk.sample_rate_hz
-            block_samples = _samples_per_block(fs, cleaning.block_size_seconds)
-            expected_start = chunk.start_index
-            first_start = chunk.start_index
-        if chunk.sample_rate_hz != fs:
-            raise CleaningError("sample rate changes inside eta0 candidate segment")
-        if chunk.start_index != expected_start:
-            raise CleaningError("eta0 candidate chunks must be contiguous and ordered")
-        if chunk.start_index % block_samples != 0:
-            raise CleaningError("eta0 candidate chunk boundary is not block-aligned")
-
-        n_blocks = (chunk.n_samples + block_samples - 1) // block_samples
-        starts = chunk.start_index + np.arange(n_blocks, dtype=np.int64) * block_samples
-        stops = np.minimum(starts + block_samples, chunk.stop_index)
-        midpoints = (starts + stops) / (2.0 * chunk.sample_rate_hz)
-
-        eta0_samples = _eta0_from_samples(
-            chunk.x_2f,
-            chunk.y_2f,
-            chunk.cavity_transmission,
-            calibration,
-        )
-        averages, minima = _reduce_values_mean_min(eta0_samples, block_samples)
-
-        starts_parts.append(starts)
-        stops_parts.append(stops)
-        midpoint_parts.append(midpoints)
-        average_parts.append(averages)
-        minimum_parts.append(minima)
-        expected_start = chunk.stop_index
-
-    if fs is None or block_samples is None or first_start is None or expected_start is None:
-        raise CleaningError("no chunks supplied for eta0 candidate segment")
-
-    starts = np.concatenate(starts_parts)
-    stops = np.concatenate(stops_parts)
-    midpoints = np.concatenate(midpoint_parts)
-    averages = np.concatenate(average_parts)
-    minima = np.concatenate(minimum_parts)
-
-    if starts.size and np.any(starts[1:] != stops[:-1]):
-        raise CleaningError("reduced eta0 candidate blocks contain a gap or overlap")
-
-    base = np.isfinite(averages) & np.isfinite(minima)
-    reference, good = _protected_past_quantile_mask(
-        averages,
-        minima,
-        midpoints,
-        base,
-        window_seconds=cleaning.reference_window_seconds,
-        quantile=cleaning.reference_quantile,
-        lower_fraction=cleaning.eta0_lower_fraction,
-    )
-
-    return APEEta0SegmentPlan(
-        sample_rate_hz=fs,
-        total_samples=expected_start - first_start,
-        block_samples=block_samples,
-        block_start_indices=starts,
-        block_stop_indices=stops,
-        block_midpoint_s=midpoints,
-        eta0_average_blocks=averages,
-        eta0_minimum_blocks=minima,
-        eta0_reference_blocks=reference,
-        eta0_good_blocks=good,
     )
 
 
