@@ -268,6 +268,41 @@ class CleaningTests(unittest.TestCase):
         self.assertFalse(np.any(final_good[cavity_glitch]))
         self.assertFalse(np.any(final_good[eta_glitch]))
 
+    def test_cavity_first_candidate_path_matches_expected_segment_logic(self):
+        whole, cavity_glitch, eta_glitch = self._chunk()
+
+        cavity_plan = build_cavity_reference_plan(
+            lambda: iter((whole,)),
+            self.cleaning,
+        )
+        self.assertFalse(np.any(cavity_plan.cavity_good_blocks[35:36]))
+
+        # Candidate after the cavity glitch starts with a reset eta0 reference.
+        start = 3600
+        candidate = APEDXDChunk(
+            source_file=whole.source_file,
+            start_index=start,
+            stop_index=whole.stop_index,
+            sample_rate_hz=whole.sample_rate_hz,
+            x_1f=whole.x_1f[start:],
+            y_1f=whole.y_1f[start:],
+            x_2f=whole.x_2f[start:],
+            y_2f=whole.y_2f[start:],
+            cavity_transmission=whole.cavity_transmission[start:],
+            first_timestamp_s=start / whole.sample_rate_hz,
+            last_timestamp_s=whole.last_timestamp_s,
+        )
+        eta_plan = build_eta0_segment_plan(
+            lambda: iter((candidate,)),
+            self.cleaning,
+            self.calibration,
+        )
+        self.assertTrue(eta_plan.eta0_good_blocks[0])
+        eta_block = (eta_glitch.start - start) // int(
+            self.fs * self.cleaning.block_size_seconds
+        )
+        self.assertFalse(eta_plan.eta0_good_blocks[eta_block])
+
     def test_full_calibration_is_gated_by_final_cleaning_mask(self):
         chunk, cavity_glitch, eta_glitch = self._chunk()
         result = clean_chunk(chunk, self.cleaning, self.calibration)
