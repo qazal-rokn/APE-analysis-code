@@ -1,17 +1,20 @@
 """APE reduced-block quality cleaning adapted from the validated earlier workflow.
 
-Cavity stage:
+Cavity stage (unchanged):
 - reduce cavity transmission into explicit non-overlapping blocks;
 - use block average to build a centered physical-time local q90 reference;
 - test block minimum against 90% of that reference;
 - refine the reference three times using only provisionally good blocks.
 
 Eta0 stage:
-- compute one reduced-record eta0 from block-averaged X2f, Y2f, and cavity
+- calibrate eta0 at the original raw-sample rate from X2f, Y2f, and cavity
   transmission using the approved calibration equation;
-- use cavity-good eta0 records to build the same centered local q90 reference;
-- test eta0 against 90% of that reference;
-- refine three times using only provisionally eta0-good, cavity-good records.
+- reduce sample-level eta0 into a block mean and block minimum;
+- build a past-only 60 s q90 reference from previously accepted cavity-good
+  eta0 block means;
+- test the eta0 block minimum against the configured lower fraction;
+- rejected eta0 blocks never update the future reference;
+- if the accepted-history window empties, hold the last healthy reference.
 
 Masks are expanded back to raw-sample indices. No interpolation, smoothing,
 gap filling, sample deletion, or X/Y science-quadrature combination occurs.
@@ -58,6 +61,7 @@ class APECleaningReferencePlan:
     cavity_reference_blocks: np.ndarray
     cavity_good_blocks: np.ndarray
     eta0_blocks: np.ndarray
+    eta0_minimum_blocks: np.ndarray
     eta0_reference_blocks: np.ndarray
     eta0_good_blocks: np.ndarray
     final_good_blocks: np.ndarray
@@ -221,17 +225,105 @@ def _refined_mask(
     return refs, good
 
 
-def _eta0_from_reduced_averages(
-    x2_average: np.ndarray,
-    y2_average: np.ndarray,
-    cavity_average: np.ndarray,
+def _protected_past_quantile_mask(
+    reference_values: np.ndarray,
+    decision_values: np.ndarray,
+    timestamps_s: np.ndarray,
+    base_eligible: np.ndarray,
+    *,
+    window_seconds: float,
+    quantile: float,
+    lower_fraction: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Past-only q90 reference built only from previously accepted records.
+
+    The current record is never included in its own reference. Rejected records
+    never update the future reference. If a sustained failure (or cavity-bad gap)
+    leaves no accepted records inside the past window, the last healthy reference
+    is held until a record passes again.
+    """
+    reference_values = np.asarray(reference_values, dtype=np.float64)
+    decision_values = np.asarray(decision_values, dtype=np.float64)
+    timestamps_s = np.asarray(timestamps_s, dtype=np.float64)
+    base_eligible = np.asarray(base_eligible, dtype=bool)
+
+    if (
+        reference_values.ndim != 1
+        or decision_values.shape != reference_values.shape
+        or timestamps_s.shape != reference_values.shape
+        or base_eligible.shape != reference_values.shape
+    ):
+        raise CleaningError("protected-reference arrays must be aligned one-dimensional arrays")
+    if reference_values.size and np.any(np.diff(timestamps_s) <= 0):
+        raise CleaningError("block timestamps must be strictly increasing")
+
+    refs = np.full(reference_values.shape, np.nan, dtype=np.float64)
+    good = np.zeros(reference_values.shape, dtype=bool)
+
+    history: list[tuple[float, float]] = []
+    ordered: list[float] = []
+    left = 0
+    last_valid_reference = np.nan
+
+    for k, target in enumerate(timestamps_s):
+        while left < len(history) and history[left][0] < target - window_seconds:
+            old_value = history[left][1]
+            pos = bisect_left(ordered, old_value)
+            if pos >= len(ordered) or ordered[pos] != old_value:
+                raise CleaningError("protected quantile window bookkeeping failed")
+            ordered.pop(pos)
+            left += 1
+
+        if ordered:
+            ref = _linear_quantile_from_sorted(ordered, quantile)
+            last_valid_reference = ref
+        elif np.isfinite(last_valid_reference):
+            ref = float(last_valid_reference)
+        elif (
+            base_eligible[k]
+            and np.isfinite(reference_values[k])
+            and np.isfinite(decision_values[k])
+        ):
+            # Initial bootstrap: the acquisition is assumed to begin in its
+            # normal operating state, matching the validated diagnostic.
+            ref = float(reference_values[k])
+            last_valid_reference = ref
+        else:
+            continue
+
+        refs[k] = ref
+
+        if (
+            base_eligible[k]
+            and np.isfinite(reference_values[k])
+            and np.isfinite(decision_values[k])
+            and decision_values[k] >= lower_fraction * ref
+        ):
+            good[k] = True
+            value = float(reference_values[k])
+            history.append((float(target), value))
+            insort(ordered, value)
+
+        # Periodically compact expired history so long records do not retain
+        # an ever-growing Python list of old timestamps.
+        if left > 4096 and left > len(history) // 2:
+            history = history[left:]
+            left = 0
+
+    return refs, good
+
+
+def _eta0_from_samples(
+    x2: np.ndarray,
+    y2: np.ndarray,
+    cavity_transmission: np.ndarray,
     calibration: CalibrationConfig,
 ) -> np.ndarray:
     c_trans, q, gain, h2 = _positive_finite_calibration(calibration)
-    i0 = c_trans * np.asarray(cavity_average, dtype=np.float64)
+    i0 = c_trans * np.asarray(cavity_transmission, dtype=np.float64)
     r2f = np.hypot(
-        np.asarray(x2_average, dtype=np.float64),
-        np.asarray(y2_average, dtype=np.float64),
+        np.asarray(x2, dtype=np.float64),
+        np.asarray(y2, dtype=np.float64),
     )
     eta0 = np.full(i0.shape, np.nan, dtype=np.float64)
     valid = (
@@ -250,6 +342,7 @@ def _eta0_from_reduced_averages(
 def _reduce_chunk_blocks(
     chunk: APEDXDChunk,
     block_samples: int,
+    calibration: CalibrationConfig,
 ) -> tuple[np.ndarray, ...]:
     if chunk.start_index % block_samples != 0:
         raise CleaningError("chunk starts must align to reduced cleaning blocks")
@@ -262,28 +355,27 @@ def _reduce_chunk_blocks(
 
     cavity_avg = np.full(n_blocks, np.nan, dtype=np.float64)
     cavity_min = np.full(n_blocks, np.nan, dtype=np.float64)
-    x2_avg = np.full(n_blocks, np.nan, dtype=np.float64)
-    y2_avg = np.full(n_blocks, np.nan, dtype=np.float64)
+    eta0_avg = np.full(n_blocks, np.nan, dtype=np.float64)
+    eta0_min = np.full(n_blocks, np.nan, dtype=np.float64)
 
     v = np.asarray(chunk.cavity_transmission, dtype=np.float64)
     x2 = np.asarray(chunk.x_2f, dtype=np.float64)
     y2 = np.asarray(chunk.y_2f, dtype=np.float64)
+    eta0_samples = _eta0_from_samples(x2, y2, v, calibration)
 
     for b in range(n_blocks):
         lo = b * block_samples
         hi = min(chunk.n_samples, lo + block_samples)
         vb = v[lo:hi]
-        xb = x2[lo:hi]
-        yb = y2[lo:hi]
+        eb = eta0_samples[lo:hi]
         if vb.size and np.all(np.isfinite(vb)):
             cavity_avg[b] = float(np.mean(vb))
             cavity_min[b] = float(np.min(vb))
-        if xb.size and np.all(np.isfinite(xb)):
-            x2_avg[b] = float(np.mean(xb))
-        if yb.size and np.all(np.isfinite(yb)):
-            y2_avg[b] = float(np.mean(yb))
+        if eb.size and np.all(np.isfinite(eb)):
+            eta0_avg[b] = float(np.mean(eb))
+            eta0_min[b] = float(np.min(eb))
 
-    return starts, stops, midpoints, cavity_avg, cavity_min, x2_avg, y2_avg
+    return starts, stops, midpoints, cavity_avg, cavity_min, eta0_avg, eta0_min
 
 
 def build_cleaning_reference_plan(
@@ -300,8 +392,8 @@ def build_cleaning_reference_plan(
     time_parts: list[np.ndarray] = []
     cavity_avg_parts: list[np.ndarray] = []
     cavity_min_parts: list[np.ndarray] = []
-    x2_avg_parts: list[np.ndarray] = []
-    y2_avg_parts: list[np.ndarray] = []
+    eta0_avg_parts: list[np.ndarray] = []
+    eta0_min_parts: list[np.ndarray] = []
 
     fs: float | None = None
     block_samples: int | None = None
@@ -320,14 +412,14 @@ def build_cleaning_reference_plan(
         if chunk.start_index % block_samples != 0:
             raise CleaningError("cleaning chunk boundary is not block-aligned")
 
-        reduced = _reduce_chunk_blocks(chunk, block_samples)
+        reduced = _reduce_chunk_blocks(chunk, block_samples, calibration)
         starts_parts.append(reduced[0])
         stops_parts.append(reduced[1])
         time_parts.append(reduced[2])
         cavity_avg_parts.append(reduced[3])
         cavity_min_parts.append(reduced[4])
-        x2_avg_parts.append(reduced[5])
-        y2_avg_parts.append(reduced[6])
+        eta0_avg_parts.append(reduced[5])
+        eta0_min_parts.append(reduced[6])
         expected_start = chunk.stop_index
 
     if not saw_chunk or fs is None or block_samples is None:
@@ -338,8 +430,8 @@ def build_cleaning_reference_plan(
     timestamps = np.concatenate(time_parts)
     cavity_avg = np.concatenate(cavity_avg_parts)
     cavity_min = np.concatenate(cavity_min_parts)
-    x2_avg = np.concatenate(x2_avg_parts)
-    y2_avg = np.concatenate(y2_avg_parts)
+    eta0_avg = np.concatenate(eta0_avg_parts)
+    eta0_min = np.concatenate(eta0_min_parts)
 
     # Refuse overlapping or duplicated reduced blocks. A partial block may exist
     # only at the end of the complete record.
@@ -361,17 +453,15 @@ def build_cleaning_reference_plan(
         refinement_iterations=cleaning.refinement_iterations,
     )
 
-    eta0 = _eta0_from_reduced_averages(x2_avg, y2_avg, cavity_avg, calibration)
-    eta_base = cavity_good & np.isfinite(eta0)
-    eta_reference, eta_good = _refined_mask(
-        eta0,
-        eta0,
+    eta_base = cavity_good & np.isfinite(eta0_avg) & np.isfinite(eta0_min)
+    eta_reference, eta_good = _protected_past_quantile_mask(
+        eta0_avg,
+        eta0_min,
         timestamps,
         eta_base,
         window_seconds=cleaning.reference_window_seconds,
         quantile=cleaning.reference_quantile,
         lower_fraction=cleaning.eta0_lower_fraction,
-        refinement_iterations=cleaning.refinement_iterations,
     )
     final_good = cavity_good & eta_good
 
@@ -386,12 +476,13 @@ def build_cleaning_reference_plan(
         cavity_minimum_blocks=cavity_min,
         cavity_reference_blocks=cavity_reference,
         cavity_good_blocks=cavity_good,
-        eta0_blocks=eta0,
+        eta0_blocks=eta0_avg,
+        eta0_minimum_blocks=eta0_min,
         eta0_reference_blocks=eta_reference,
         eta0_good_blocks=eta_good,
         final_good_blocks=final_good,
         metadata={
-            "method": "ape_reduced_q90_refined_cleaning_v2",
+            "method": "ape_reduced_q90_protected_eta_cleaning_v3",
             "source_inspiration": "validated earlier APE cavity_lock / pem_modulation workflow",
             "block_size_seconds": float(cleaning.block_size_seconds),
             "reference_window_seconds": float(cleaning.reference_window_seconds),
@@ -401,12 +492,16 @@ def build_cleaning_reference_plan(
             "eta0_lower_fraction": float(cleaning.eta0_lower_fraction),
             "cavity_reference_statistic": "reduced-block average",
             "cavity_decision_statistic": "reduced-block minimum",
-            "eta0_reference_statistic": "reduced-record eta0",
-            "eta0_decision_statistic": "reduced-record eta0",
-            "window_definition": "abs(t_j - t_i) <= reference_window_seconds / 2",
+            "eta0_reference_statistic": "0.05 s mean of sample-level eta0",
+            "eta0_decision_statistic": "0.05 s minimum of sample-level eta0",
+            "cavity_window_definition": "abs(t_j - t_i) <= reference_window_seconds / 2",
+            "eta0_window_definition": "accepted history with t_k - window_seconds <= t_j < t_k",
+            "eta0_reference_update": "accepted cavity-good and eta0-good block means only",
+            "eta0_reference_hold": "hold last healthy reference when accepted-history window is empty",
+            "eta0_bootstrap": "first valid cavity-good eta0 block mean",
             "quantile_method": "linear interpolation at (n - 1) * q",
             "reference_interpolation": "none",
-            "reference_fallback": "none",
+            "reference_fallback": "eta0 holds last healthy reference only",
             "smoothing": "none",
             "gap_filling": "none",
             "indices_preserved": True,
