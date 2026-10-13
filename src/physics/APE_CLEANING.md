@@ -128,8 +128,10 @@ If the accepted-history window becomes empty during a sustained failure or
 cavity-bad interval, the last valid healthy eta0 reference is held until a
 block passes again.
 
-At the beginning of the complete acquisition, the reference is bootstrapped
-from the first valid cavity-good eta0 block mean.
+For the efficient longest-segment search, each cavity-good candidate segment
+starts a fresh protected eta0 history. The reference is bootstrapped from the
+first valid eta0 block mean in that cavity-good segment. A file boundary by
+itself does not reset the history if the same cavity-good segment crosses it.
 
 ## Efficient longest-segment selection
 
