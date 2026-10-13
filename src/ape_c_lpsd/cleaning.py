@@ -361,6 +361,12 @@ def _reduce_chunk_blocks(
     block_samples: int,
     calibration: CalibrationConfig,
 ) -> tuple[np.ndarray, ...]:
+    """Reduce one aligned raw chunk without Python loops over full blocks.
+
+    This is numerically equivalent to the earlier per-block implementation:
+    a block statistic is valid only when every sample in that block is finite.
+    The final partial block, when present, is handled separately.
+    """
     if chunk.start_index % block_samples != 0:
         raise CleaningError("chunk starts must align to reduced cleaning blocks")
     n_blocks = (chunk.n_samples + block_samples - 1) // block_samples
@@ -380,17 +386,35 @@ def _reduce_chunk_blocks(
     y2 = np.asarray(chunk.y_2f, dtype=np.float64)
     eta0_samples = _eta0_from_samples(x2, y2, v, calibration)
 
-    for b in range(n_blocks):
-        lo = b * block_samples
-        hi = min(chunk.n_samples, lo + block_samples)
-        vb = v[lo:hi]
-        eb = eta0_samples[lo:hi]
+    n_full = chunk.n_samples // block_samples
+    full_stop = n_full * block_samples
+
+    if n_full:
+        vb = v[:full_stop].reshape(n_full, block_samples)
+        eb = eta0_samples[:full_stop].reshape(n_full, block_samples)
+
+        valid_v = np.all(np.isfinite(vb), axis=1)
+        valid_eta = np.all(np.isfinite(eb), axis=1)
+
+        v_mean = np.mean(vb, axis=1)
+        v_min = np.min(vb, axis=1)
+        eta_mean = np.mean(eb, axis=1)
+        eta_minimum = np.min(eb, axis=1)
+
+        cavity_avg[:n_full] = np.where(valid_v, v_mean, np.nan)
+        cavity_min[:n_full] = np.where(valid_v, v_min, np.nan)
+        eta0_avg[:n_full] = np.where(valid_eta, eta_mean, np.nan)
+        eta0_min[:n_full] = np.where(valid_eta, eta_minimum, np.nan)
+
+    if full_stop < chunk.n_samples:
+        vb = v[full_stop:]
+        eb = eta0_samples[full_stop:]
         if vb.size and np.all(np.isfinite(vb)):
-            cavity_avg[b] = float(np.mean(vb))
-            cavity_min[b] = float(np.min(vb))
+            cavity_avg[-1] = float(np.mean(vb))
+            cavity_min[-1] = float(np.min(vb))
         if eb.size and np.all(np.isfinite(eb)):
-            eta0_avg[b] = float(np.mean(eb))
-            eta0_min[b] = float(np.min(eb))
+            eta0_avg[-1] = float(np.mean(eb))
+            eta0_min[-1] = float(np.min(eb))
 
     return starts, stops, midpoints, cavity_avg, cavity_min, eta0_avg, eta0_min
 
