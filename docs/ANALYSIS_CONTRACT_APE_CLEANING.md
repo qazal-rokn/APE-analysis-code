@@ -77,8 +77,11 @@ exists, bootstrap the reference from the first valid cavity-good eta0 block
 mean. This matches the validated real-data diagnostic and assumes acquisition
 begins in its normal operating state.
 
-File boundaries do not reset the eta0 history when the researcher declares the
-files to be one continuous acquisition.
+For the efficient longest-segment workflow, cavity-good segments are treated as
+independent eta0 candidates. The protected eta0 reference is reset at the start
+of each cavity-good candidate segment and bootstrapped from its first valid
+eta0 block. File boundaries alone do not create a reset when a cavity-good
+segment crosses between files.
 
 ### Final mask
 The final reduced-record mask is
@@ -123,7 +126,9 @@ The approved replacement is therefore:
 4. past-only 60 s q90 from accepted history;
 5. failed eta0 records never update the reference;
 6. hold the last healthy reference when the accepted-history window empties;
-7. one-sided lower decision at 80% of the protected reference.
+7. one-sided lower decision at 80% of the protected reference;
+8. reset/bootstrap the protected eta0 state at each cavity-good candidate
+   segment for the efficient longest-segment search.
 
 ## EFFICIENT LONGEST-SEGMENT SEARCH
 
