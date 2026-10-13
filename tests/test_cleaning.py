@@ -6,6 +6,7 @@ import numpy as np
 
 from ape_c_lpsd.calibration import calibrate_chunk
 from ape_c_lpsd.cleaning import (
+    build_cavity_reference_plan,
     build_cleaning_reference_plan,
     clean_chunk,
     clean_chunk_with_plan,
@@ -172,6 +173,27 @@ class CleaningTests(unittest.TestCase):
         self.assertFalse(np.any(result.eta_good[collapse]))
         self.assertTrue(np.all(result.eta_good[7500:7900]))
         self.assertGreater(np.nanmedian(result.eta0_reference[collapse]), 0.015)
+
+    def test_cavity_only_plan_matches_full_plan_cavity_stage(self):
+        whole, _, _ = self._chunk()
+
+        def factory():
+            yield whole
+
+        cavity_plan = build_cavity_reference_plan(factory, self.cleaning)
+        full_plan = build_cleaning_reference_plan(
+            factory, self.cleaning, self.calibration
+        )
+
+        np.testing.assert_allclose(
+            cavity_plan.cavity_reference_blocks,
+            full_plan.cavity_reference_blocks,
+            equal_nan=True,
+        )
+        np.testing.assert_array_equal(
+            cavity_plan.cavity_good_blocks,
+            full_plan.cavity_good_blocks,
+        )
 
     def test_full_record_reference_plan_crosses_chunk_boundaries(self):
         whole, cavity_glitch, eta_glitch = self._chunk()
