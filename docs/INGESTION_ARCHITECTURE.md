@@ -49,7 +49,7 @@ centered 60 s cavity q90
 rank cavity-good segments by duration
         |
         v
-read all five raw channels only for the longest candidate
+read X2f, Y2f, and cavity only for the longest candidate
         |
         v
 sample-level eta0
