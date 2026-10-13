@@ -8,6 +8,7 @@ from ape_c_lpsd.calibration import calibrate_chunk
 from ape_c_lpsd.cleaning import (
     build_cavity_reference_plan,
     build_cleaning_reference_plan,
+    build_eta0_segment_plan,
     clean_chunk,
     clean_chunk_with_plan,
 )
@@ -194,6 +195,43 @@ class CleaningTests(unittest.TestCase):
             cavity_plan.cavity_good_blocks,
             full_plan.cavity_good_blocks,
         )
+
+    def test_eta0_candidate_segment_resets_reference_and_rejects_glitch(self):
+        whole, _, eta_glitch = self._chunk()
+
+        # Use a cavity-good subsegment that begins well after the acquisition
+        # start. The approved efficient-search rule resets eta0 history here.
+        start = 4000
+        stop = whole.n_samples
+        segment = APEDXDChunk(
+            source_file=whole.source_file,
+            start_index=start,
+            stop_index=stop,
+            sample_rate_hz=whole.sample_rate_hz,
+            x_1f=whole.x_1f[start:stop],
+            y_1f=whole.y_1f[start:stop],
+            x_2f=whole.x_2f[start:stop],
+            y_2f=whole.y_2f[start:stop],
+            cavity_transmission=whole.cavity_transmission[start:stop],
+            first_timestamp_s=start / whole.sample_rate_hz,
+            last_timestamp_s=(stop - 1) / whole.sample_rate_hz,
+        )
+
+        plan = build_eta0_segment_plan(
+            lambda: iter((segment,)),
+            self.cleaning,
+            self.calibration,
+        )
+
+        self.assertEqual(plan.start_index, start)
+        self.assertEqual(plan.stop_index, stop)
+        self.assertTrue(plan.eta0_good_blocks[0])
+
+        glitch_block_start = eta_glitch.start
+        block_index = int(
+            np.flatnonzero(plan.block_start_indices == glitch_block_start)[0]
+        )
+        self.assertFalse(plan.eta0_good_blocks[block_index])
 
     def test_full_record_reference_plan_crosses_chunk_boundaries(self):
         whole, cavity_glitch, eta_glitch = self._chunk()
