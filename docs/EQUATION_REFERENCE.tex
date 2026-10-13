@@ -5,7 +5,7 @@
 \section*{Approved reduced-block APE cleaning}
 
 The synchronized raw channels are partitioned into non-overlapping 0.05 s
-records with physical midpoint times $t_k$.
+records with midpoint times $t_k$.
 
 For the cavity channel,
 \begin{equation}
@@ -13,36 +13,37 @@ For the cavity channel,
 \qquad
 V_{\min,k}=\min(V_{\rm trans}).
 \end{equation}
-The centered 60 s local cavity reference is the linearly interpolated 90th
-percentile of eligible block averages,
+The centered 60 s cavity reference is
 \begin{equation}
-V_{{\rm ref},k}=
+V_{{\rm ref},k}
+=
 Q_{0.90}\left(
-\{\bar V_j:\ |t_j-t_k|\le30\,{\rm s}\}
+\{\bar V_j: |t_j-t_k|\le30\,{\rm s}\}
 \right),
 \end{equation}
-and the cavity decision is
+with cavity decision
 \begin{equation}
-M_{{\rm cav},k}=
-\left[V_{\min,k}\ge0.90\,V_{{\rm ref},k}\right].
+M_{{\rm cav},k}
+=
+\left[V_{\min,k}\ge0.90V_{{\rm ref},k}\right].
 \end{equation}
-The cavity reference is recomputed from provisionally good records three times,
-as in the earlier validated APE cavity-quality workflow.
+The cavity reference is recomputed from provisionally good blocks three times.
 
-For each raw sample $n$,
+For each raw sample,
 \begin{equation}
 I_0[n]=C_{\rm trans}V_{\rm trans}[n],
 \qquad
 R_{2f}[n]=\sqrt{X_{2f}[n]^2+Y_{2f}[n]^2},
 \end{equation}
 \begin{equation}
-\eta_0[n]=
+\eta_0[n]
+=
 \sqrt{
 \frac{2\sqrt{2}\,R_{2f}[n]}
 {H_2qGI_0[n]}
 }.
 \end{equation}
-For each 0.05 s block $k$,
+For each 0.05 s block,
 \begin{equation}
 \bar\eta_{0,k}
 =
@@ -53,8 +54,7 @@ For each 0.05 s block $k$,
 \min(\eta_0[n])_{n\in k}.
 \end{equation}
 
-The eta0 reference is the past-only 90th percentile of previously accepted
-block means from the preceding 60 s,
+Within a cavity-good segment, the protected eta0 reference is
 \begin{equation}
 \eta_{{\rm ref},k}
 =
@@ -62,75 +62,44 @@ Q_{0.90}\left(
 \left\{
 \bar\eta_{0,j}:
 t_k-60\,{\rm s}\le t_j<t_k,\
-M_{{\rm cav},j}=1,\
 M_{\eta,j}=1
 \right\}
-\right).
+\right),
 \end{equation}
-The current block never contributes to its own reference.  The eta0 decision is
+and
 \begin{equation}
 M_{\eta,k}
 =
-M_{{\rm cav},k}\land
 \left[
-\eta_{0,\min,k}\ge0.80\,\eta_{{\rm ref},k}
+\eta_{0,\min,k}\ge0.80\eta_{{\rm ref},k}
 \right].
 \end{equation}
-Only accepted eta0 block means update the future reference. If the accepted
-history inside the preceding 60 s becomes empty, the last valid healthy eta0
-reference is held. For the efficient longest-segment search, each cavity-good candidate segment
-starts a fresh protected eta0 history. The first valid eta0 block mean in that
-segment bootstraps the reference. A file boundary alone does not reset the
-history if the same cavity-good segment crosses it.
+Rejected eta0 blocks do not update the reference. If no accepted block remains
+inside the preceding 60 s during a sustained eta0 failure, the last valid
+healthy reference is held.
 
-The final mask is
+At the beginning of every cavity-good segment, eta0 reference state is reset
+and the first valid eta0 block mean bootstraps the reference. A file boundary
+does not reset the reference when the cavity-good segment continues across
+declared-continuous files.
+
+The final block decision is
 \begin{equation}
 M_{{\rm final},k}=M_{{\rm cav},k}\land M_{\eta,k}.
 \end{equation}
-The historical fixed cut $\eta_0\ge0.019$ is not used. Every raw sample
-inherits the quality state of its reduced record. No interpolation, smoothing,
-gap filling, deletion, or concatenation across rejected records is performed.
 
 \section*{Approved efficient longest-segment search}
 
-For the task of selecting the single longest continuous final-good segment, the
-full acquisition is first processed with the unchanged cavity criterion.
-Cavity-good segments are ranked by duration.  Sample-level $\eta_0$ cleaning is
-then evaluated only for candidate cavity-good segments whose duration can still
-exceed the best final-good duration already found.
+The full acquisition is first processed with cavity cleaning only.
+Cavity-good intervals are ranked by duration. Sample-level eta0 is evaluated
+only for candidate intervals that can still exceed the best surviving
+final-good interval.
 
-For this optimized candidate search, the protected $\eta_0$ history is reset at
-the beginning of each cavity-good candidate segment and bootstrapped from the
-first valid $\eta_0$ block mean in that segment.  Within each candidate, the
-approved equations and decision remain
+Candidates are processed longest-first. Evaluation stops when
 \begin{equation}
-\eta_{{\rm ref},k}
-=
-Q_{0.90}\left(
-\{\bar\eta_{0,j}: t_k-60\,{\rm s}\le t_j<t_k,\ M_{\eta,j}=1\}
-\right),
+T_{\rm best}\ge T_{\rm cavity,next},
 \end{equation}
-\begin{equation}
-M_{\eta,k}
-=
-\left[
-\eta_{0,\min,k}\ge0.80\,\eta_{{\rm ref},k}
-\right].
-\end{equation}
-Rejected blocks do not update the reference, and the last valid healthy
-reference is held if the accepted-history window becomes empty.  Candidate
-evaluation stops once the next unprocessed cavity-good segment is no longer
-than the current best final-good segment.
-
-\subsection*{Efficient longest-segment search convention}
-For production selection of the longest final-good interval, the cavity mask is
-computed over the complete acquisition first. Cavity-good intervals are ranked
-by duration, and the eta0 stage is evaluated only for candidate intervals that
-can still exceed the current best surviving interval. At each candidate start,
-the protected eta0 history is reset and the first valid eta0 block mean
-bootstraps $\eta_{{\rm ref}}$. Candidates are processed from longest to
-shortest, and evaluation stops when the best surviving interval is at least as
-long as every unprocessed cavity-good interval.
+because eta0 cleaning can only shorten an unprocessed cavity-good interval.
 
 \section*{Approved APE raw-to-calibrated chunk conversion}
 
