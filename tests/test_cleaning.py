@@ -233,6 +233,53 @@ class CleaningTests(unittest.TestCase):
         )
         self.assertFalse(plan.eta0_good_blocks[block_index])
 
+    def test_full_plan_eta0_resets_at_cavity_segment_start(self):
+        whole, _, _ = self._chunk()
+        full = build_cleaning_reference_plan(
+            lambda: iter((whole,)),
+            self.cleaning,
+            self.calibration,
+        )
+
+        # The synthetic cavity glitch occupies reduced block 35. The next
+        # cavity-good block begins a new approved eta0 candidate segment.
+        restart_block = 36
+        self.assertTrue(full.cavity_good_blocks[restart_block])
+        self.assertAlmostEqual(
+            full.eta0_reference_blocks[restart_block],
+            full.eta0_blocks[restart_block],
+            places=12,
+        )
+
+        start = int(full.block_start_indices[restart_block])
+        segment = APEDXDChunk(
+            source_file=whole.source_file,
+            start_index=start,
+            stop_index=whole.stop_index,
+            sample_rate_hz=whole.sample_rate_hz,
+            x_1f=whole.x_1f[start:],
+            y_1f=whole.y_1f[start:],
+            x_2f=whole.x_2f[start:],
+            y_2f=whole.y_2f[start:],
+            cavity_transmission=whole.cavity_transmission[start:],
+            first_timestamp_s=start / whole.sample_rate_hz,
+            last_timestamp_s=whole.last_timestamp_s,
+        )
+        candidate = build_eta0_segment_plan(
+            lambda: iter((segment,)),
+            self.cleaning,
+            self.calibration,
+        )
+        np.testing.assert_array_equal(
+            full.eta0_good_blocks[restart_block:],
+            candidate.eta0_good_blocks,
+        )
+        np.testing.assert_allclose(
+            full.eta0_reference_blocks[restart_block:],
+            candidate.eta0_reference_blocks,
+            equal_nan=True,
+        )
+
     def test_full_record_reference_plan_crosses_chunk_boundaries(self):
         whole, cavity_glitch, eta_glitch = self._chunk()
         chunk_samples = 2000
