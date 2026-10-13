@@ -42,11 +42,19 @@ cavity average -> centered 60 s q90 reference
 cavity minimum -> 90% lower decision, 3 refinements
         |
         v
-reduced X2f/Y2f/cavity averages -> preliminary eta0
+production cavity-good mask
         |
         v
-eta0 -> centered 60 s q90 reference
-90% lower decision, 3 refinements
+sample-level eta0 from X2f/Y2f/cavity transmission
+        |
+        v
+0.05 s eta0 mean + eta0 minimum
+        |
+        v
+past-only 60 s q90 from previously accepted eta0 means
+eta0 minimum -> 80% lower decision
+failed eta0 blocks do not update reference
+hold last healthy reference if accepted-history window empties
         |
         v
 final good reduced-record mask
@@ -58,11 +66,13 @@ expand mask to original raw indices
 full rho_X / rho_Y calibration only on final-good samples
 ```
 
-The quality references are constructed across the full record at 0.05 s
-reduced-record resolution so centered 60 s q90 windows do not reset at raw
-reader chunk boundaries. The raw science channels remain bounded-memory and
-chunked. Reduced statistics define quality only; they are not substituted for
-the raw science samples used later in calibration and spectral estimation.
+The cavity quality reference is constructed across the full record at 0.05 s
+resolution so its centered window does not reset at raw reader chunk
+boundaries. The eta0 quality state is also continuous across declared
+continuous file/chunk boundaries: its previous-60-s accepted history is not
+reset there. The raw science channels remain bounded-memory and chunked.
+Reduced statistics define quality only; they are not substituted for the raw
+science samples used later in calibration and spectral estimation.
 
 ## Legacy/reference ingestion and segment selection
 
