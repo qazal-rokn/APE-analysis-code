@@ -33,7 +33,11 @@ from ape_c_lpsd.cleaning import (
     build_cavity_reference_plan,
     build_eta0_segment_plan,
 )
-from ape_c_lpsd.ingestion import iter_ape_dxd_chunks, load_dxd_ingestion_config
+from ape_c_lpsd.ingestion import (
+    iter_ape_dxd_cavity_chunks,
+    iter_ape_dxd_range_chunks,
+    load_dxd_ingestion_config,
+)
 from ape_c_lpsd.ingestion.reference_paths import resolve_reference_dewesoft_paths
 
 
@@ -109,41 +113,6 @@ def _summarize_runs(
     }
 
 
-def _slice_chunk_to_global_interval(
-    chunk,
-    *,
-    global_offset: int,
-    start_index: int,
-    stop_index: int,
-):
-    """Return the overlapping portion of one file-local chunk, or None."""
-    chunk_global_start = global_offset + chunk.start_index
-    chunk_global_stop = global_offset + chunk.stop_index
-    overlap_start = max(start_index, chunk_global_start)
-    overlap_stop = min(stop_index, chunk_global_stop)
-    if overlap_start >= overlap_stop:
-        return None
-
-    lo = overlap_start - chunk_global_start
-    hi = overlap_stop - chunk_global_start
-    fs = chunk.sample_rate_hz
-    first_ts = chunk.first_timestamp_s + lo / fs
-    last_ts = chunk.first_timestamp_s + (hi - 1) / fs
-
-    return replace(
-        chunk,
-        start_index=overlap_start,
-        stop_index=overlap_stop,
-        x_1f=chunk.x_1f[lo:hi],
-        y_1f=chunk.y_1f[lo:hi],
-        x_2f=chunk.x_2f[lo:hi],
-        y_2f=chunk.y_2f[lo:hi],
-        cavity_transmission=chunk.cavity_transmission[lo:hi],
-        first_timestamp_s=first_ts,
-        last_timestamp_s=last_ts,
-    )
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
@@ -185,7 +154,7 @@ def main() -> None:
             file_offsets[source] = global_offset
             local_expected_start = 0
             file_count = 0
-            for chunk in iter_ape_dxd_chunks(
+            for chunk in iter_ape_dxd_cavity_chunks(
                 source,
                 channel_names=config.channels.as_mapping(),
                 wrapper_path=dewesoft.wrapper_path,
@@ -247,29 +216,33 @@ def main() -> None:
         for source in files:
             file_start = file_offsets[source]
             file_stop = file_start + file_sample_counts[source]
-            if file_stop <= candidate_start or file_start >= candidate_stop:
+            overlap_start = max(candidate_start, file_start)
+            overlap_stop = min(candidate_stop, file_stop)
+            if overlap_start >= overlap_stop:
                 continue
 
+            local_start = overlap_start - file_start
+            local_stop = overlap_stop - file_start
             print(
-                f"  eta0 candidate reads {source.name}",
+                f"  eta0 candidate reads {source.name}: "
+                f"{local_start}:{local_stop}",
                 file=sys.stderr,
                 flush=True,
             )
-            for chunk in iter_ape_dxd_chunks(
+            for chunk in iter_ape_dxd_range_chunks(
                 source,
                 channel_names=config.channels.as_mapping(),
                 wrapper_path=dewesoft.wrapper_path,
                 library_path=dewesoft.library_path,
+                start_index=local_start,
+                stop_index=local_stop,
                 chunk_size_samples=args.chunk_size_samples,
             ):
-                sliced = _slice_chunk_to_global_interval(
+                yield replace(
                     chunk,
-                    global_offset=file_start,
-                    start_index=candidate_start,
-                    stop_index=candidate_stop,
+                    start_index=file_start + chunk.start_index,
+                    stop_index=file_start + chunk.stop_index,
                 )
-                if sliced is not None:
-                    yield sliced
 
     best_start: int | None = None
     best_stop: int | None = None
@@ -352,7 +325,7 @@ def main() -> None:
         next_unprocessed_bound_s = (next_stop - next_start) / fs
 
     summary = {
-        "method": "cavity_first_ranked_eta0_candidate_search_v1",
+        "method": "cavity_first_ranked_eta0_candidate_search_v2",
         "continuity_assumption": (
             "researcher-declared continuous acquisition for cavity cleaning and "
             "cavity-good segment construction"
@@ -400,6 +373,11 @@ def main() -> None:
             "reference_quantile": config.cleaning.reference_quantile,
             "cavity_lower_fraction": config.cleaning.cavity_lower_fraction,
             "eta0_lower_fraction": config.cleaning.eta0_lower_fraction,
+        },
+        "performance": {
+            "full_record_channels_read": ["cavity_transmission"],
+            "eta0_full_channels_read_only_for_candidates": True,
+            "candidate_reader_uses_requested_raw_ranges_only": True,
         },
         "memory_behavior": {
             "raw_full_record_retained": False,
