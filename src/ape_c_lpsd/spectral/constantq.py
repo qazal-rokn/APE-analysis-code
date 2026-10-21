@@ -61,11 +61,11 @@ def c_format() -> str:
 def _c_argv(exe, inp, dataset, fft, output, *, fs, t_stop, f_min, f_max,
             grid_bins, method, start, count, overlap=20, regression=0,
             window=-2, psll=238.13, scale=1, epsilon=10,
-            memory_power=26, kernel_threshold=1e-15, a_option=2):
+            memory_power=26, kernel_threshold=1e-15, a_option=2, debug=False):
     """Shared production/synthetic C argument assembly, with explicit flags."""
     if method not in (2, 3) or start < 0 or count <= 0 or start + count > grid_bins:
         raise ConstantQError("Invalid C method or frequency index interval")
-    return [str(exe), "-A", str(a_option), "-b", "0", "-e", str(t_stop),
+    return [str(exe), *(["-d"] if debug else []), "-A", str(a_option), "-b", "0", "-e", str(t_stop),
             "-f", str(fs), "-h", str(method), "-i", str(inp), "-D", str(dataset),
             "-l", str(overlap), "-n", str(count), "-o", str(output),
             "-r", str(regression), "-s", str(f_min), "-t", str(f_max),
@@ -122,7 +122,7 @@ def plan_commands(executable, input_hdf5, dataset, fft_hdf5, output_dir,
                 grid_bins=p.grid_bins, overlap=p.overlap, regression=p.regression,
                 window=p.window, psll=p.psll_db, scale=p.scale,
                 epsilon=p.epsilon, memory_power=p.memory_power,
-                kernel_threshold=p.kernel_threshold, a_option=p.a_option)
+                kernel_threshold=p.kernel_threshold, a_option=p.a_option, debug=True)
     fft_command = _c_argv(output=out/"fft_stage.lpsd.0", method=3,
                           start=0, count=p.grid_bins, **args)
     constq = [(i, _c_argv(output=out/f"{dataset}.lpsd.{i}", method=2,
