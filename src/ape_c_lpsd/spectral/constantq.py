@@ -57,6 +57,48 @@ def c_format() -> str:
     return 'GNUTERM "APE Constant-Q"\nFORMAT "fDNbri"\nEND\n'
 
 
+
+def _c_argv(exe, inp, dataset, fft, output, *, fs, t_stop, f_min, f_max,
+            grid_bins, method, start, count, overlap=20, regression=0,
+            window=-2, psll=238.13, scale=1, epsilon=10,
+            memory_power=26, kernel_threshold=1e-15, a_option=2):
+    """Shared production/synthetic C argument assembly, with explicit flags."""
+    if method not in (2, 3) or start < 0 or count <= 0 or start + count > grid_bins:
+        raise ConstantQError("Invalid C method or frequency index interval")
+    return [str(exe), "-A", str(a_option), "-b", "0", "-e", str(t_stop),
+            "-f", str(fs), "-h", str(method), "-i", str(inp), "-D", str(dataset),
+            "-l", str(overlap), "-n", str(count), "-o", str(output),
+            "-r", str(regression), "-s", str(f_min), "-t", str(f_max),
+            "-T", "-w", str(window), "-p", str(psll), "-x", str(scale),
+            "-N", str(start), "-J", str(grid_bins), "-E", str(epsilon),
+            "-M", str(memory_power), "-R", str(kernel_threshold), "-O", str(fft)]
+
+
+def plan_synthetic_fixture_commands(executable, input_hdf5, fft_hdf5, output_dir):
+    """Only the established 60 s VOLTAGE fixture; never callable with APE HDF5.
+
+    An absolute, exact fixture path and a single 1301-bin method-2 job prevent
+    this test adapter from becoming an alternative production configuration.
+    """
+    inp = Path(input_hdf5)
+    if str(inp) != "/tmp/ape_validation_noise_voltage.h5":
+        raise ConstantQError("Synthetic fixture requires exact known /tmp voltage input")
+    exe, fft, out = map(Path, (executable, fft_hdf5, output_dir))
+    if not all(p.is_absolute() for p in (inp, exe, fft, out)):
+        raise ConstantQError("Synthetic paths must be absolute")
+    if not str(out).startswith("/tmp/ape-controller-v1-"):
+        raise ConstantQError("Refusing non-isolated synthetic output location")
+    if out == fft or out == inp:
+        raise ConstantQError("Unsafe synthetic output path")
+    args = dict(exe=exe, inp=inp, dataset="voltage", fft=fft,
+                fs=2048.0, t_stop=60.0, f_min=5.0, f_max=900.0,
+                grid_bins=1301)
+    return {"fft": _c_argv(output=out/"fft_stage.lpsd", method=3,
+                           start=0, count=1301, **args),
+            "batch": _c_argv(output=out/"noise_constq.lpsd", method=2,
+                             start=0, count=1301, **args)}
+
+
 def plan_commands(executable, input_hdf5, dataset, fft_hdf5, output_dir,
                   profile=ConstantQProfile()):
     """Generate one shared FFT and sixteen Constant-Q commands for ONE quadrature.
@@ -75,21 +117,16 @@ def plan_commands(executable, input_hdf5, dataset, fft_hdf5, output_dir,
     if out == inp or out == fft or out in inp.parents or out in exe.parents:
         raise ConstantQError("Unsafe output directory")
     p = profile
-    common = [str(exe), "-d", "-D", "/"+dataset,
-              "-f", str(p.fs), "-i", str(inp),
-              "-b", str(p.t_start), "-e", str(p.t_stop),
-              "-s", str(p.f_min), "-t", str(p.f_max),
-              "-J", str(p.grid_bins), "-A", str(p.a_option),
-              "-l", str(p.overlap), "-r", str(p.regression),
-              "-w", str(p.window), "-p", str(p.psll_db),
-              "-x", str(p.scale), "-E", str(p.epsilon),
-              "-M", str(p.memory_power), "-R", str(p.kernel_threshold),
-              "-T", "-O", str(fft)]
-    # A new FFT is generated precisely once and then reused by method 2.
-    fft_command = [*common, "-h", "3", "-N", "0", "-n", str(p.grid_bins),
-                   "-o", str(out/"fft_stage.lpsd.0")]
-    constq = [(i, [*common, "-h", "2", "-N", str(start), "-n", str(n),
-                   "-o", str(out/f"{dataset}.lpsd.{i}")])
+    args = dict(exe=exe, inp=inp, dataset="/"+dataset, fft=fft,
+                fs=p.fs, t_stop=p.t_stop, f_min=p.f_min, f_max=p.f_max,
+                grid_bins=p.grid_bins, overlap=p.overlap, regression=p.regression,
+                window=p.window, psll=p.psll_db, scale=p.scale,
+                epsilon=p.epsilon, memory_power=p.memory_power,
+                kernel_threshold=p.kernel_threshold, a_option=p.a_option)
+    fft_command = _c_argv(output=out/"fft_stage.lpsd.0", method=3,
+                          start=0, count=p.grid_bins, **args)
+    constq = [(i, _c_argv(output=out/f"{dataset}.lpsd.{i}", method=2,
+                          start=start, count=n, **args))
               for i, start, n in batches(profile)]
     return {"dataset": dataset, "fft": fft_command, "batches": constq,
             "output_dir": str(out), "fft_hdf5": str(fft),
