@@ -1,6 +1,7 @@
 """Isolated Docker smoke test of the previously validated 60 s synthetic C workflow.
 
-This is deliberately independent of the frozen production ConstantQProfile.
+The synthetic profile stays separate from the frozen production profile,
+but both use the same C argument-building function.
 No raw/real APE files, production spectra, or original vendor sources are changed.
 
 Default is a READ-ONLY preflight. --execute is explicit authorization to run
@@ -13,7 +14,10 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
+from ape_c_lpsd.spectral.constantq import plan_synthetic_fixture_commands
 
 DOCKER = Path("/Applications/Docker.app/Contents/Resources/bin/docker")
 CONTAINER = "lpsd-linux"
@@ -26,17 +30,6 @@ EXPECTED_BINS = 1301
 def docker(*args, capture=True):
     return subprocess.run([str(DOCKER), *args], check=True, text=True,
                           capture_output=capture)
-
-
-def command(method, out, fft):
-    return [EXEC, "-A", "2", "-b", "0", "-e", "60.0",
-            "-f", "2048.0", "-h", str(method),
-            "-i", INPUT, "-D", "voltage", "-l", "20",
-            "-n", "1301", "-o", out, "-r", "0",
-            "-s", "5.0", "-t", "900.0", "-T", "-w", "-2",
-            "-p", "238.13", "-x", "1", "-N", "0",
-            "-J", "1301", "-E", "10", "-M", "26",
-            "-R", "1e-15", "-O", fft]
 
 
 def verify_spectrum(text):
@@ -90,10 +83,10 @@ def main():
     fft = f"{dirname}/fft_cache.h5"
     first = f"{dirname}/fft_stage.lpsd"
     second = f"{dirname}/noise_constq.lpsd"
-    steps = [(3, first), (2, second)]
+    plan = plan_synthetic_fixture_commands(EXEC, INPUT, fft, dirname)
+    steps = [(3, plan["fft"]), (2, plan["batch"])]
     print("NEW synthetic work directory:", dirname, flush=True)
-    for method, output in steps:
-        argv = command(method, output, fft)
+    for method, argv in steps:
         print("Running original C method", method, flush=True)
         proc = subprocess.run([str(DOCKER), "exec", CONTAINER, *argv],
                               capture_output=True, text=True)
