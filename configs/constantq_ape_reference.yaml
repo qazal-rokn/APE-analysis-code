@@ -1,0 +1,21 @@
+# Frozen historical APE profile. New observations need separately approved settings.
+# Scientific values are fixed in ConstantQProfile, not silently overridden by YAML.
+fs_hz: 20000.0
+time_start_s: 0.0
+time_stop_s: 15435.0
+f_min_hz: 65.0
+f_max_hz: 10000.0
+frequency_bins: 5035956
+q_approx: 1000000
+method_fft: 3
+method_constantq: 2
+overlap_percent: 20
+window: -2
+psll_db: 238.13
+regression: 0
+input_scale: 1
+epsilon: 10
+kernel_threshold: 1.0e-15
+memory_power: 26
+a_option: 2
+batch_endpoints: [0, 3649978, 3996383, 4199059, 4342872, 4454427, 4545576, 4622643, 4689403, 4748290, 4800966, 4848618, 4892122, 4932141, 4969193, 5003688, 5035956]
