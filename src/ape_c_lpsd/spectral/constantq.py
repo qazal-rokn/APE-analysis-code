@@ -74,7 +74,7 @@ def _c_argv(exe, inp, dataset, fft, output, *, fs, t_stop, f_min, f_max,
             "-M", str(memory_power), "-R", str(kernel_threshold), "-O", str(fft)]
 
 
-def plan_synthetic_fixture_commands(executable, input_hdf5, fft_hdf5, output_dir):
+def plan_synthetic_fixture_commands(executable, input_hdf5, fft_hdf5, output_dir, *, endpoints=(0, 1301)):
     """Only the established 60 s VOLTAGE fixture; never callable with APE HDF5.
 
     An absolute, exact fixture path and a single 1301-bin method-2 job prevent
@@ -90,13 +90,20 @@ def plan_synthetic_fixture_commands(executable, input_hdf5, fft_hdf5, output_dir
         raise ConstantQError("Refusing non-isolated synthetic output location")
     if out == fft or out == inp:
         raise ConstantQError("Unsafe synthetic output path")
+    if endpoints not in ((0, 1301), (0, 400, 850, 1301)):
+        raise ConstantQError("Only the fixed synthetic partitions are authorized")
     args = dict(exe=exe, inp=inp, dataset="voltage", fft=fft,
                 fs=2048.0, t_stop=60.0, f_min=5.0, f_max=900.0,
                 grid_bins=1301)
-    return {"fft": _c_argv(output=out/"fft_stage.lpsd", method=3,
-                           start=0, count=1301, **args),
-            "batch": _c_argv(output=out/"noise_constq.lpsd", method=2,
-                             start=0, count=1301, **args)}
+    fft_command = _c_argv(output=out/"fft_stage.lpsd", method=3,
+                          start=0, count=1301, **args)
+    groups = [_c_argv(output=out/f"noise_constq.{i}.lpsd", method=2,
+                      start=start, count=end-start, **args)
+              for i, (start, end) in enumerate(zip(endpoints, endpoints[1:]))]
+    return {"fft": fft_command, "batch": _c_argv(
+                output=out/"noise_constq.lpsd", method=2,
+                start=0, count=1301, **args),
+            "batches": groups, "endpoints": endpoints}
 
 
 def plan_commands(executable, input_hdf5, dataset, fft_hdf5, output_dir,
