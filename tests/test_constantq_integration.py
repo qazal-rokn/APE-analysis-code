@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from ape_c_lpsd.spectral.constantq import (
-    ConstantQError, ConstantQProfile, batches, plan_commands, FREQUENCIES
+    ConstantQError, ConstantQProfile, batches, plan_commands, FREQUENCIES,\n    plan_synthetic_fixture_commands
 )
 from ape_c_lpsd.spectral.combine import validate_and_combine, check_xy_frequency_alignment
 from ape_c_lpsd.backends.slurm import render_slurm_preview
@@ -34,6 +34,25 @@ class ControllerTests(unittest.TestCase):
             self.assertIn("-h 2", render["batches"][0])
             self.assertLess(render["fft"].index("#SBATCH"), render["fft"].index("set -euo"))
             self.assertLess(render["batches"][0].index("#SBATCH"), render["batches"][0].index("set -euo"))
+
+    def test_isolated_fixture_uses_same_c_planner(self):
+        with tempfile.TemporaryDirectory() as d:
+            # Fixture inputs are pinned; no C execution occurs here.
+            plan = plan_synthetic_fixture_commands(
+                "/tmp/lpsd-exec", "/tmp/ape_validation_noise_voltage.h5",
+                "/tmp/ape-controller-v1-smoke/fft.h5",
+                "/tmp/ape-controller-v1-smoke")
+            for mode, key in ((3, "fft"), (2, "batch")):
+                argv = plan[key]
+                self.assertEqual(argv[argv.index("-h")+1], str(mode))
+                self.assertEqual(argv[argv.index("-n")+1], "1301")
+                self.assertEqual(argv[argv.index("-N")+1], "0")
+                self.assertEqual(argv[argv.index("-D")+1], "voltage")
+            with self.assertRaises(ConstantQError):
+                plan_synthetic_fixture_commands(
+                    "/tmp/lpsd-exec", "/tmp/real_ape_data.h5",
+                    "/tmp/ape-controller-v1-smoke/fft.h5",
+                    "/tmp/ape-controller-v1-smoke")
 
     def test_refuses_magnitude_and_changed_profile(self):
         with tempfile.TemporaryDirectory() as d:
