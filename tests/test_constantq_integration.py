@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from ape_c_lpsd.spectral.constantq import (
-    ConstantQError, ConstantQProfile, batches, plan_commands, FREQUENCIES,\n    plan_synthetic_fixture_commands
+    ConstantQError, ConstantQProfile, batches, plan_commands, FREQUENCIES,
+    plan_synthetic_fixture_commands
 )
 from ape_c_lpsd.spectral.combine import validate_and_combine, check_xy_frequency_alignment
 from ape_c_lpsd.backends.slurm import render_slurm_preview
