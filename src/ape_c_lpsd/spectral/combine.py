@@ -1,8 +1,9 @@
 """Bounded-memory, lossless Constant-Q batch validation and combination."""
 from __future__ import annotations
 import math
+from itertools import zip_longest
 from pathlib import Path
-from .constantq import ConstantQError, ENDPOINTS, FREQUENCIES
+from .constantq import ConstantQError, ENDPOINTS
 
 
 def _rows(path, expected_count, *, columns):
@@ -37,10 +38,11 @@ def _rows(path, expected_count, *, columns):
 
 
 def validate_and_combine(paths, output, *, endpoints=ENDPOINTS, columns=6):
-    """Validate exact indexed batches and write first four original columns.
+    """Validate indexed batches and write original columns f, PSD, N_avg, N_kernel.
 
-    Does not resample, average, scale, smooth, or modify C PSD estimates.
-    Atomic publication: invalid inputs never replace a finished output.
+    Every batch must have its requested count and increasing frequencies.
+    The combined grid must also be monotonically increasing, with no overlaps.
+    This does NOT establish the independently computed theoretical grid.
     """
     if len(paths) != len(endpoints)-1 or endpoints[0] != 0:
         raise ConstantQError("Wrong number of index batches")
@@ -73,10 +75,28 @@ def validate_and_combine(paths, output, *, endpoints=ENDPOINTS, columns=6):
 
 
 def check_xy_frequency_alignment(x_file, y_file):
-    """Streaming comparison: X/Y files must contain the exact same native grid."""
-    with Path(x_file).open() as x, Path(y_file).open() as y:
-        for index, (a, b) in enumerate(zip(x, y), 1):
-            if not a or not b or a.split()[0] != b.split()[0]:
-                raise ConstantQError(f"X/Y grid mismatch at row {index}")
-        if x.readline() or y.readline():
-            raise ConstantQError("Different X/Y row counts")
+    """Require identical positive finite frequency grids and exact row counts."""
+    def freqs(path):
+        with Path(path).open(encoding="utf-8") as stream:
+            last = None
+            for row_idx, line in enumerate(stream, 1):
+                if not line.strip() or line.startswith("#"):
+                    continue
+                fields = line.split()
+                if len(fields) != 4:
+                    raise ConstantQError(f"{path}:{row_idx}: expected four combined columns")
+                try:
+                    f = float(fields[0])
+                except ValueError as exc:
+                    raise ConstantQError(f"{path}:{row_idx}: invalid frequency") from exc
+                if not math.isfinite(f) or f <= 0 or (last is not None and f <= last):
+                    raise ConstantQError(f"{path}:{row_idx}: nonincreasing/nonfinite frequency")
+                last = f
+                yield f
+    count = 0
+    for count, (a, b) in enumerate(zip_longest(freqs(x_file), freqs(y_file)), 1):
+        if a is None or b is None or a != b:
+            raise ConstantQError(f"X/Y frequency grid/count mismatch at bin {count}")
+    if count == 0:
+        raise ConstantQError("Empty X/Y spectra")
+    return count

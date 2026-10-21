@@ -6,20 +6,23 @@ from ape_c_lpsd.spectral.constantq import ConstantQError
 
 
 def render_slurm_preview(plan, *, modules=("gcc/14", "hdf5-serial/1.14.1", "gsl/2.7")):
-    """Return script text; same argv and scientific settings as local backend.
+    """Return dependency-aware previews with identical scientific argv.
 
-    Separate jobs make the FFT->method2 dependency explicit. No sbatch call.
+    Slurm reads #SBATCH directives only before the first shell command.
+    The caller must prepare a fresh run directory and LPSDCFN before submission.
+    Nothing here runs sbatch, writes cluster files, or claims Slurm validation.
     """
-    hdr = "#!/bin/bash\nset -euo pipefail\n"
     module_setup = "".join(f"module load {shlex.quote(x)}\n" for x in modules)
     config = str(Path(plan["output_dir"])/"lpsd.cfg")
     env = f"export LPSDCFN={shlex.quote(config)}\n"
-    fft = hdr + "#SBATCH --mem=32G\n#SBATCH --time=02:00:00\n" + module_setup + env + shlex.join(plan["fft"])+"\n"
-    batches = {}
-    for i, argv in plan["batches"]:
-        batches[i] = (hdr+"#SBATCH --mem=16G\n#SBATCH --time=08:00:00\n"+
-                      module_setup+env+shlex.join(argv)+"\n")
-    return {"fft": fft, "batches": batches,
+    def script(argv, memory, time):
+        return (f"#!/bin/bash\n#SBATCH --ntasks=1\n#SBATCH --cpus-per-task=1\n"
+                f"#SBATCH --mem={memory}\n#SBATCH --time={time}\n"
+                "set -euo pipefail\n" + module_setup + env + shlex.join(argv) + "\n")
+    fft = script(plan["fft"], "32G", "02:00:00")
+    batch_scripts = {i: script(argv, "16G", "08:00:00")
+                     for i, argv in plan["batches"]}
+    return {"fft": fft, "batches": batch_scripts,
             "required_dependency": "submit each batch with --dependency=afterok:<FFT_JOB_ID>",
             "submitted": False}
 

@@ -5,7 +5,7 @@ from pathlib import Path
 from ape_c_lpsd.spectral.constantq import (
     ConstantQError, ConstantQProfile, batches, plan_commands, FREQUENCIES
 )
-from ape_c_lpsd.spectral.combine import validate_and_combine
+from ape_c_lpsd.spectral.combine import validate_and_combine, check_xy_frequency_alignment
 from ape_c_lpsd.backends.slurm import render_slurm_preview
 
 
@@ -30,6 +30,8 @@ class ControllerTests(unittest.TestCase):
             self.assertIn("--dependency=afterok", render["required_dependency"])
             self.assertIn("-h 3", render["fft"])
             self.assertIn("-h 2", render["batches"][0])
+            self.assertLess(render["fft"].index("#SBATCH"), render["fft"].index("set -euo"))
+            self.assertLess(render["batches"][0].index("#SBATCH"), render["batches"][0].index("set -euo"))
 
     def test_refuses_magnitude_and_changed_profile(self):
         with tempfile.TemporaryDirectory() as d:
@@ -51,6 +53,17 @@ class ControllerTests(unittest.TestCase):
             with self.assertRaises(ConstantQError):
                 validate_and_combine([a,b],root/"bad",endpoints=(0,2,4))
             self.assertFalse((root/"bad").exists())
+
+    def test_xy_rejects_trailing_row(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            x, y = root/"x", root/"y"
+            x.write_text("1 2 3 4\n2 3 4 5\n")
+            y.write_text("1 2 3 4\n2 3 4 5\n")
+            self.assertEqual(check_xy_frequency_alignment(x,y), 2)
+            y.write_text("1 2 3 4\n2 3 4 5\n3 4 5 6\n")
+            with self.assertRaises(ConstantQError):
+                check_xy_frequency_alignment(x,y)
 
 
 if __name__ == "__main__":
