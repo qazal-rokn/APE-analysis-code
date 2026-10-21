@@ -86,7 +86,8 @@ def plan_commands(executable, input_hdf5, dataset, fft_hdf5, output_dir,
               "-M", str(p.memory_power), "-R", str(p.kernel_threshold),
               "-T", "-O", str(fft)]
     # A new FFT is generated precisely once and then reused by method 2.
-    fft_command = [*common, "-h", "3", "-o", str(out/"fft_stage.lpsd.0")]
+    fft_command = [*common, "-h", "3", "-N", "0", "-n", str(p.grid_bins),
+                   "-o", str(out/"fft_stage.lpsd.0")]
     constq = [(i, [*common, "-h", "2", "-N", str(start), "-n", str(n),
                    "-o", str(out/f"{dataset}.lpsd.{i}")])
               for i, start, n in batches(profile)]
