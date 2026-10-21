@@ -7,7 +7,7 @@ from ape_c_lpsd.spectral.constantq import (
     plan_synthetic_fixture_commands
 )
 from ape_c_lpsd.spectral.combine import validate_and_combine, check_xy_frequency_alignment
-from ape_c_lpsd.backends.slurm import render_slurm_preview
+from ape_c_lpsd.backends.slurm import render_slurm_preview, render_slurm_array_preview
 
 
 class ControllerTests(unittest.TestCase):
@@ -35,6 +35,26 @@ class ControllerTests(unittest.TestCase):
             self.assertIn("-h 2", render["batches"][0])
             self.assertLess(render["fft"].index("#SBATCH"), render["fft"].index("set -euo"))
             self.assertLess(render["batches"][0].index("#SBATCH"), render["batches"][0].index("set -euo"))
+
+    def test_slurm_array_prepares_16_cpu_tasks_without_submission(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            plan = plan_commands(root/"lpsd-exec", root/"input.h5", "rho_x",
+                                 root/"fft.h5", root/"new-run")
+            a = render_slurm_array_preview(plan, max_parallel=4)
+            self.assertFalse(a["submitted"])
+            self.assertEqual(a["batch_count"], 16)
+            self.assertIn("#SBATCH --array=0-15%4", a["array_script"])
+            self.assertIn("afterok:<FFT_JOB_ID>", a["array_submission"])
+            self.assertIn('case "${SLURM_ARRAY_TASK_ID:', a["array_script"])
+            self.assertEqual(sum(1 for l in a["array_script"].splitlines()
+                                 if l.strip().startswith(tuple(str(i)+")" for i in range(16)))), 16)
+            self.assertLess(a["array_script"].index("#SBATCH"),
+                            a["array_script"].index("set -euo"))
+            for _, cmd in plan["batches"]:
+                self.assertIn(__import__("shlex").join(cmd), a["array_script"])
+            with self.assertRaises(ConstantQError):
+                render_slurm_array_preview(plan, max_parallel=0)
 
     def test_isolated_fixture_uses_same_c_planner(self):
         with tempfile.TemporaryDirectory() as d:
