@@ -23,6 +23,8 @@ class ControllerTests(unittest.TestCase):
                               root/"fft.h5", root/"new-run")
             self.assertEqual(len(p["batches"]), 16)
             self.assertEqual(p["fft"][p["fft"].index("-h")+1], "3")
+            self.assertEqual(p["fft"][p["fft"].index("-N")+1], "0")
+            self.assertEqual(p["fft"][p["fft"].index("-n")+1], str(FREQUENCIES))
             for _, argv in p["batches"]:
                 self.assertEqual(argv[argv.index("-h")+1], "2")
                 self.assertEqual(argv[argv.index("-O")+1], str(root/"fft.h5"))
