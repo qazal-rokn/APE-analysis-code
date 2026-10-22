@@ -68,7 +68,7 @@ def main():
                                  parameters, EXTERNAL)
     direct = float(vendor_stats.log_likelihood(
         mu, np.log(observed)[None, :], np.log(background)[None, :],
-        template[None, :], np.ones(1), parameters[None, :]))
+        1.0, template, parameters[None, :]))
     likelihood_difference = abs(via_adapter - direct)
     sha_after = hashlib.sha256(WINDOW.read_bytes()).hexdigest()
     result = {
