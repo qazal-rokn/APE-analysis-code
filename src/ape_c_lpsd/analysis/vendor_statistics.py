@@ -93,10 +93,14 @@ def log_likelihood(mu, observed_psd, background_psd, signal_psd_template,
         raise ValueError("Expected finite (loc, scale, alpha)")
     if not np.isfinite(mu) or mu < 0:
         raise ValueError("Signal amplitude mu must be nonnegative")
+    # The legacy 'weights' keyword supplies the external peak_norm scalar;
+    # it is NOT a per-frequency statistical weighting vector.
     w = np.ones(1) if weights is None else np.asarray(weights, dtype=float)
     if w.shape != (1,) or not np.isfinite(w).all() or w[0] <= 0:
-        raise ValueError("Expected one positive scalar weight")
+        raise ValueError("Expected one positive scalar signal normalization")
     _, stats, _ = load_external(external_root)
+    # Vendor contract: (mu, log_observed[1,N], log_background[1,N],
+    #                   peak_norm: scalar, peak_shape[N], model_args[1,3]).
     return float(stats.log_likelihood(
         float(mu), np.log(data)[None, :], np.log(bg)[None, :],
-        template[None, :], w, pars[None, :]))
+        float(w[0]), template, pars[None, :]))
