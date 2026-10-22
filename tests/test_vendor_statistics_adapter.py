@@ -21,12 +21,14 @@ class DummyStats:
     called = False
 
     @classmethod
-    def log_likelihood(cls, mu, y, b, beta, weights, params):
+    def log_likelihood(cls, mu, y, b, peak_norm, peak_shape, params):
         cls.called = True
-        assert y.shape == b.shape == beta.shape == (1, 5)
+        assert y.shape == b.shape == (1, 5)
+        assert peak_shape.shape == (5,)
+        assert np.isscalar(peak_norm) and peak_norm > 0
         assert params.shape == (1, 3)
-        assert weights.shape == (1,)
-        return float(-np.sum((y-b-mu*beta)**2))
+        return float(-np.sum(
+            (y - np.log(np.exp(b) + peak_norm*peak_shape[None, :]*mu))**2))
 
 
 class IntegrationTests(unittest.TestCase):
@@ -49,8 +51,17 @@ class IntegrationTests(unittest.TestCase):
         pars = np.array([0.0, 1.0, 0.0])
         DummyStats.called = False
         with patch.object(adapter, "load_external", return_value=(DummyFit, DummyStats, {})):
-            self.assertTrue(np.isfinite(adapter.log_likelihood(
-                0.3, data, bg, beta, pars, "/unused")))
+            actual = adapter.log_likelihood(0.3, data, bg, beta, pars, "/unused")
+            direct = DummyStats.log_likelihood(
+                0.3, np.log(data)[None, :], np.log(bg)[None, :],
+                1.0, beta, pars[None, :])
+            self.assertAlmostEqual(actual, direct)
+            actual_scaled = adapter.log_likelihood(
+                0.3, data, bg, beta, pars, "/unused", weights=np.array([0.7]))
+            direct_scaled = DummyStats.log_likelihood(
+                0.3, np.log(data)[None, :], np.log(bg)[None, :],
+                0.7, beta, pars[None, :])
+            self.assertAlmostEqual(actual_scaled, direct_scaled)
         self.assertTrue(DummyStats.called)
         with self.assertRaises(ValueError):
             adapter.log_likelihood(0, data, bg, np.array([-1]*5), pars, "/unused")
