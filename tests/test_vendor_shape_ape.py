@@ -39,8 +39,10 @@ class VendorShapeTests(unittest.TestCase):
                 path,frequency_bins_hz=self.f)
             np.testing.assert_array_equal(got,self.shape)
             with self.assertRaises(ValueError):
-                vendor_shape_ape.load_vendor_peak_shape(
-                    path,frequency_bins_hz=[100.,100.1])
+                vendor_shape_ape.prepare_vendor_shape_ape_likelihood(
+                    **dict(self.inputs, frequency_bins_hz=[100.,100.1],
+                           observed_ps=np.ones((2,2)),
+                           background_ps=np.ones((2,2))))
 
     def test_invalid_normalization_rejected(self):
         with self.assertRaises(ValueError):
