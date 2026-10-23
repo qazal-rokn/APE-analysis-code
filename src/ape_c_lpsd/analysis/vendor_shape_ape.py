@@ -32,9 +32,9 @@ def validate_vendor_peak_shape(peak_shape, frequency_bins_hz):
     if (frequency.ndim != 1 or not frequency.size
             or not np.isfinite(frequency).all()
             or np.any(frequency <= 0) or np.any(np.diff(frequency) <= 0)
-            or shape.shape != frequency.shape or not np.isfinite(shape).all()
+            or shape.ndim != 1 or not shape.size or not np.isfinite(shape).all()
             or np.any(shape < 0) or not np.isclose(shape.sum(), 1., rtol=1e-12, atol=1e-12)):
-        raise ValueError("Vendor peak shape must be nonnegative, unit sum and exactly grid-aligned")
+        raise ValueError("Vendor peak shape must be nonnegative, nonempty and unit sum")
     return shape.copy()
 
 
@@ -52,6 +52,8 @@ def prepare_vendor_shape_ape_likelihood(*, observed_ps, background_ps,
     """
     f = np.asarray(frequency_bins_hz, dtype=float)
     shape = validate_vendor_peak_shape(vendor_peak_shape, f)
+    if shape.size != f.size:
+        raise ValueError('Selected candidate window must have peak_shape.size bins')
     data = np.asarray(observed_ps, dtype=float)
     bg = np.asarray(background_ps, dtype=float)
     pars = np.asarray(skewnormal_parameters, dtype=float)
