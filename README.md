@@ -255,3 +255,27 @@ Focused unit-test file:
 execution, or C-binary execution is claimed here. The full validated
 PS-enabled C binary remains operator-supplied at runtime, guarded by
 the opt-in executable hash.
+
+## External scalar-model audit: sliding peak shape (23 October 2026)
+
+The original external `max_lkl_executable.py` establishes that
+`peak_shape` is a **normalized template applied to each consecutive
+candidate window**, not an array covering the complete C-LPSD frequency
+grid. For candidate starting index `i`, it selects the consecutive
+`N=len(peak_shape)` bins `i:i+N` and passes the same shape to
+`stats.log_likelihood`. The project does not contain a checked-in
+`.npy` peak-shape example or its generation code. When the external
+shape is omitted, the vendor uses the one-bin default `[1]`.
+
+The APE adapter now accepts a normalized shape independently of the
+full spectrum size and requires matching frequency-bin count only
+**when evaluating the selected candidate window**. No LIGO-specific
+frequency grid is assumed. We keep vendor shape values unmodified and
+replace its scalar/LIGO amplitude response by APE's QWP response.
+
+**Open provenance requirement:** to reproduce their *multi-bin*
+physical signal shape precisely, obtain the actual user-supplied .npy
+and its creation method, if one was used. Matching the same frequency
+indices/Constant-Q settings and estimator power response remains to
+be verified on synthetic data; this is not permission to modify the
+signal shape speculatively.
