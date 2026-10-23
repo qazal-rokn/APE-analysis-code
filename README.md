@@ -217,3 +217,41 @@ PYTHONPATH=src python -m unittest discover -s tests -p 'test_ape_likelihood_wiri
 
 Continue work on `development/likelihood`. Keep `main` unchanged
 until acceptance; document every pipeline modification here.
+
+## Exact external peak-shape interface (23 October 2026)
+
+`src/ape_c_lpsd/analysis/vendor_shape_ape.py` now directly accepts the
+**original external scalar-field program's normalized peak-shape .npy**.
+The input is copied unchanged: no replacement Maxwellian model, no
+interpolation, and no silent renormalization. It rejects non-unit-sum,
+nonfinite, negative or different-length shape arrays. This is an
+alternative to the experimental benchmark in `src/physics/axion_halo.py`,
+not an additional shape factor.
+
+For each detector observation `q` and native Constant-Q frequency `f_j`,
+the vendor receives:
+- `peak_shape[j] = h[j]`, unchanged and summing to one;
+- `peak_norm[q,j] = (g_ref * R_APE(f_j))**2 * alpha[q] / 2`;
+- `mu = (g_agg / g_ref)**2`;
+- log observed and background **PS**, with units rad².
+
+This preserves the vendor's original
+`B[q,j] + mu * peak_norm[q,j] * peak_shape[j]` structure; the
+LIGO-specific scalar beta is **not** reused. The original
+`stats.log_likelihood` is unchanged.
+
+**Scientific guard:** This direct-shape interface is only correct if
+the supplied peak-shape weights already describe the actual native
+C-LPSD *observed* frequency bins after their window response. The
+external shape file's length and normalization alone cannot prove this;
+the original file's grid definition and kernel handling must be checked.
+If the shape is defined on intrinsic-field bins instead, use the
+general `ape_likelihood.prepare_ape_likelihood` interface with an
+independently validated C-LPSD kernel and halo weights.
+Peak/RMS and X/Y fractions remain injection-validation gates.
+
+Focused unit-test file:
+`tests/test_vendor_shape_ape.py`. No end-to-end run, original vendor
+execution, or C-binary execution is claimed here. The full validated
+PS-enabled C binary remains operator-supplied at runtime, guarded by
+the opt-in executable hash.
