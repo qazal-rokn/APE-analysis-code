@@ -64,8 +64,9 @@ def main():
     template = background.copy()
     parameters = fit["skewnormal_loc_scale_alpha"]
     mu = 0.25
-    via_adapter = log_likelihood(mu, observed, background, template,
-                                 parameters, EXTERNAL)
+    via_adapter = log_likelihood(
+        mu, np.log(observed)[None, :], np.log(background)[None, :],
+        1.0, np.ones(1), parameters[None, :], EXTERNAL)
     direct = float(vendor_stats.log_likelihood(
         mu, np.log(observed)[None, :], np.log(background)[None, :],
         1.0, template, parameters[None, :]))
