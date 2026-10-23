@@ -386,3 +386,38 @@ Focused checks (after checkout):
 PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_ape_synthetic_run.py'
 PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_ape_candidate_pipeline.py'
 ```
+
+## Stochastic axion-halo injection (23 October 2026)
+
+`src/ape_c_lpsd/analysis/synthetic_axion_halo.py` now provides a
+**separate opt-in stochastic Gaussian halo generator**. It does **not**
+invent a new line shape: it consumes the actual caller-supplied
+normalized vendor spectral weights and physical frequency support.
+The seed fixes an ensemble realization; independent complex Gaussian
+frequency coefficients reproduce the supplied ensemble-mean spectral
+powers. It multiplies each component's amplitude by the APE QWP
+envelope and an explicitly provided axion coupling. The synthetic
+HDF5 stores `rho_x`, `rho_y`, weight/frequency provenance, seed,
+and injected coupling. White noise is added separately to X/Y.
+
+**Critical:** This module is NOT yet the default of the
+`tools/run_ape_synthetic_candidates.py` 60-second C smoke runner.
+The existing 60-second fixture uses a pure tone. Physical virial
+axion linewidth is of order `f * 10^-6`; at 100 Hz this is
+approximately 0.0001 Hz, whereas 60 s Fourier spacing is 0.0167 Hz.
+The generator explicitly rejects intrinsic support frequencies that
+cannot be represented distinctly on the configured FFT grid. It
+does not silently substitute the tone fixture or create a fake
+resolved halo. A scientifically relevant stochastic injection needs
+a sufficiently long simulation, an approved halo shape, C profile
+for that duration, and actual C/window tests.
+
+The current QWP function supplies the *amplitude envelope* but not a
+verified complex optical phase transfer. X/Y are drawn from a shared
+stochastic field scaled by explicit fractions; the actual demodulation
+phase convention must be validated. Hence this module is a
+physics-motivated injection foundation rather than a fully
+verified APE axion injection. Focused tests live in
+`tests/test_synthetic_axion_halo.py`; no live compiled-C
+execution or coupling recovery is claimed. The original vendor
+and `main` remain unchanged.
