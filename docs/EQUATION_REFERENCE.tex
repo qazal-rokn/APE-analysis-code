@@ -170,4 +170,26 @@ Y_{\rm ell}[n]=Y_V[n]/D[n].
 This legacy path is retained for historical cross-checks and is not the
 authoritative implementation of the new raw-to-calibrated streaming stage.
 
+\section*{APE QWP Case-2 forward likelihood response (provisional)}
+\begin{equation}
+\mathcal R_{\mathrm{QWP}}(f)=
+\frac{\tau C_{\mathrm{unit}}\sqrt{2\rho_{\mathrm{DM}}}}
+{\sqrt{(\pi/\mathcal F_s)^2+4\sin^2(\pi f\tau_1)}}.
+\end{equation}
+For user-specified normalized halo masses $h_k$, C-LPSD PS window
+response $W_{qjk}$, and quadrature power fractions $\alpha_q$:
+\begin{equation}
+T_{qj}=\frac{g_{\mathrm{ref}}^2}{2}\alpha_q
+\sum_k h_k\mathcal R_{\mathrm{QWP}}^2(f_k)W_{qjk}.
+\end{equation}
+The vendor convention is $P_{\mathrm{model},qj}=B_{qj}+
+\mu N_{qj}S_j$, with $N_{qj}S_j=T_{qj}$,
+$\sum_j S_j=1$ and $\mu=(g_{a\gamma\gamma}/g_{\mathrm{ref}})^2$.
+Native PS units are rad$^2$, not PSD rad$^2$/Hz.
+There is no additional $\sqrt{f/Q_a}$ factor in the forward
+response; physical halo coherence enters through $h_k$.
+All parameter inputs are user specified. Peak/RMS and X/Y response
+are provisional until injection validated, as is the complete
+physical likelihood normalization.
+
 \end{document}
