@@ -180,3 +180,40 @@ Minimum local adapter check (no external C binary required):
 ```bash
 PYTHONPATH=src python -m unittest tests.test_ps_optin
 ```
+
+## Draft integration: C interface, halo and likelihood (23 October 2026)
+
+On **development/likelihood** only:
+- `src/ape_c_lpsd/spectral/ps_optin.py` binds the C plan to a caller-provided
+  verified PS-enabled executable path and exact executable SHA-256; the
+  compiled binary itself is **not** embedded or connected to a running
+  machine in this repository. Original compiled C and original plan untouched.
+- `src/physics/axion_halo.py` provides an optional **unboosted Maxwellian
+  benchmark**, with explicitly user-provided rest frequency, speed scale,
+  light speed, frequency bin edges and minimum captured probability.
+  This omits Earth's/laboratory motion, halo escape cutoff and modulation;
+  it is not a final halo model for physical axion limits.
+- `src/ape_c_lpsd/analysis/ape_likelihood.py` creates a PS [rad²]
+  physical QWP signal template from caller-provided halo weights and actual
+  C-LPSD power-kernel response, factors it for the unmodified vendor
+  likelihood, and maps coupling g [GeV^-1] to
+  `mu=(g/g_ref)^2`. The vendor fitting and statistical functions stay external
+  and unchanged. No new integration-time factor is inserted.
+- `tests/test_ape_likelihood_wiring.py` covers the required minimal
+  interface and normalization contracts. No simulation generation or
+  end-to-end execution was performed in this milestone.
+
+**Blocked for a genuine run:** the actual validated PS C executable on
+Mac/VIPER and its own SHA-256; the actual C-LPSD PS window kernel;
+experimentally justified X/Y response and peak/RMS convention; a
+lab-frame halo model and suitable independent noise statistics.
+No likelihood confidence limits or scientific detection claims are
+authorized by this wiring alone. All calibration constants are caller inputs.
+
+To run the focused interface tests in a checked-out environment:
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -p 'test_ape_likelihood_wiring.py'
+```
+
+Continue work on `development/likelihood`. Keep `main` unchanged
+until acceptance; document every pipeline modification here.
