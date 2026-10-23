@@ -481,3 +481,36 @@ original C/vendor in this assistant session**. Do not claim otherwise.
 synthetic-provenance guard tests. The complete repository checkout,
 native C executable and vendor package must be tested on the actual
 execution host before scientific interpretation.
+
+## Step-1 executable preflight, 23 October 2026
+
+Added `tools/preflight_ape_pipeline.py` to avoid launching a long
+native-C run on a machine without the correct binary, unchanged vendor,
+actual shape file or valid synthetic HDF5. It is **read-only**. This
+cannot certify C numerical accuracy; it only checks deployment.
+
+After checking out `development/likelihood` on the compatible Linux
+execution host and preparing the run-specific JSON config, execute:
+
+```bash
+PYTHONPATH=src:. python tools/preflight_ape_pipeline.py \
+  --config /absolute/path/to/ape-run.json
+# Only if preflight prints "ready_for_attempt": true:
+PYTHONPATH=src:. python tools/run_ape_pipeline.py \
+  --config /absolute/path/to/ape-run.json
+```
+
+Both commands are synchronous foreground processes and require a compatible
+Linux `lpsd-exec` and original vendor installed at the configured paths.
+Run from the GitHub checkout root. Use a new, isolated
+`ape-pipeline-*` run directory. Do not use the example physics values
+as measured APE calibration constants or treat a 60 s fixture as a
+resolved dark-matter halo. Native test execution was not possible from
+the assistant's sandbox because the validated archive resides only on
+the user's Mac/VIPER.
+
+**Source audit caveat**: `fit_window` requires >=1100 positive C bins;
+real vendor background fit/quality must pass; `candidate_start_indices`
+currently controls scan coverage. Running five example start indices is
+not a full-frequency search. A calibrated global significance is not
+available and no upper limits are calculated.
