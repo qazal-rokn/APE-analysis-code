@@ -421,3 +421,63 @@ verified APE axion injection. Focused tests live in
 `tests/test_synthetic_axion_halo.py`; no live compiled-C
 execution or coupling recovery is claimed. The original vendor
 and `main` remain unchanged.
+
+## Configurable whole-chain controller (23 October 2026)
+
+**Entry point**: `tools/run_ape_pipeline.py`, with operator-editable
+`configs/ape_pipeline_synthetic.example.json`. The run is **synthetic-only**
+and consumes an existing HDF5 with `rho_x`, `rho_y` calibrated radians,
+`synthetic_only=true`, sampling metadata, and (by default) a
+`stochastic_gaussian_vendor_shape` injection-model marker.
+The original source file is read-only.
+
+Pipeline stages now connected in one script:
+1. Refuse unauthorized/real input; verify explicit X/Y and duration,
+   sampling rate, executable SHA256 and external original vendor.
+2. Create a brand-new isolated `ape-pipeline-*` run directory.
+3. Build per-channel C PS plans from **caller-provided** numerical settings
+   via `spectral/configured_ps.py`, without modifying frozen historical
+   `ConstantQProfile`. Each has one Method-3 shared FFT then requested
+   Method-2 partitions. The default example uses 16 partitions, 1301 bins.
+4. Explicitly execute the **real** compiled PS-enabled C backend locally,
+   verify all 7-column outputs, split to legacy 6-column and PS 2-column
+   products, then losslessly join PS sidecars.
+5. Demand frequency alignment X/Y and strictly positive observed PS.
+6. Invoke original vendor background spline and skew-normal fitting,
+   retaining its quality gate and vendor source checksums.
+7. Use original vendor peak-shape file, or its exact one-bin `[1]` default,
+   replace only scalar detector normalization with supplied APE QWP
+   response, call the unchanged vendor log-likelihood.
+8. Evaluate a **configured set** of candidate windows on a finite
+   nonnegative coupling grid and select/cluster provisional candidates.
+9. Write run `manifest.json`, original native output files and
+   `candidates.csv` in the isolated new run directory.
+
+Invocation after checking out development/likelihood on a Linux host
+with the original native C binary and vendor installation:
+
+```bash
+PYTHONPATH=src:. python tools/run_ape_pipeline.py \
+  --config /absolute/path/to/operator-reviewed-config.json
+```
+
+**Not a validated physical science run.** The example configuration has
+illustrative 60-second settings incompatible with a resolved halo at
+100 Hz; the operator must specify a duration, frequency support,
+background fit region and C settings appropriate to the injected
+halo. The unchanged vendor's multibin peak-shape .npy source has not
+been obtained, and the native C PS convolution/response kernel remains
+unvalidated. The statistical scan covers *only the explicitly listed*
+candidate windows rather than automatically scanning the entire
+Constant-Q grid. The X/Y correlation, QWP complex transfer, peak/RMS,
+coupling recovery, false alarm coverage, experimental calibration,
+real-data authorization and large-run RAM/CPU scaling are not validated.
+The setup requires an already generated stochastic halo HDF5; it does
+not generate its input internally. There are no upper limits.
+The run is **implemented but never successfully executed with the
+original C/vendor in this assistant session**. Do not claim otherwise.
+
+`tests/test_configured_pipeline.py` adds input-immutability/
+synthetic-provenance guard tests. The complete repository checkout,
+native C executable and vendor package must be tested on the actual
+execution host before scientific interpretation.
