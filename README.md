@@ -113,3 +113,40 @@ The review-only `calibrated_review` stage applies the frozen reference scalar
 calibration denominator independently to the two recorded voltage quadratures.
 It does not combine X/Y and remains a reference implementation until the new
 APE calibration contract is frozen.
+
+## Current likelihood development (23 October 2026)
+
+**Repository policy:** `main` is the established APE baseline. The current
+unfinished likelihood work is on `development/likelihood`; no new branches.
+Update this README and the equation reference whenever pipeline code changes.
+
+### Implemented on development/likelihood
+
+- The APE-owned adapter `src/ape_c_lpsd/analysis/vendor_statistics.py` now
+  preserves the original six-argument vendor likelihood contract:
+  log observed/background (M,N), nonuniform `peak_norm` broadcastable to
+  (M,N), normalized `peak_shape` (N,), and skew parameters (M,3).
+  `factor_power_template` converts a reference-coupling PS template into
+  the original norm/shape convention without changing vendor statistics.
+- `src/physics/qwp_signal.py` provides the **provisional** QWP Case-2
+  finesse-dependent optical response and a windowed PS template.
+  Finesse, tau, tau1, dark-matter density, unit conversion, reference
+  coupling, halo weights, C-LPSD window response and quadrature fractions
+  are **mandatory caller inputs**, never embedded physical defaults.
+
+### Not yet validated or integrated
+
+The QWP amplitude/peak-to-RMS conversion and actual X/Y signal responses
+are unvalidated. The halo line shape and actual C-LPSD PS kernel must be
+provided by an independently verified model, not invented here.
+The optical response has **no additional sqrt(f/Q_a)** integration factor.
+Native PS has units rad², distinct from PSD in rad²/Hz.
+The opt-in C direct-PS extension is still separate from this repository.
+This is **not yet a completed or scientifically validated real-data
+axion coupling/upper-limit pipeline**. Original external vendor, compiled
+C, raw data and calibration remain unchanged.
+
+Minimal interface tests live in `tests/test_vendor_statistics_adapter.py`
+and `tests/test_qwp_likelihood_contract.py`.
+See `docs/ANALYSIS_CONTRACT_QWP_LIKELIHOOD_20261023.md`
+and `docs/EQUATION_REFERENCE.tex` for assumptions.
