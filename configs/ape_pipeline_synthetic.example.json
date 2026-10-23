@@ -1,0 +1,43 @@
+{
+  "_note": "Run-specific values only. Synthetic calibrated-radian HDF5 must already exist; all PS executed by the actual C binary. No real data or upper limits.",
+  "synthetic_only": true,
+  "execute_c": true,
+  "input_kind": "synthetic_halo_file",
+  "require_stochastic_halo": true,
+  "input_hdf5": "/absolute/path/to/previously/generated/stochastic_halo.h5",
+  "run_dir": "/tmp/ape-pipeline-new-unique-run",
+  "ps_executable": "/absolute/path/to/native-linux/validated/build/lpsd-exec",
+  "ps_sha256": "REPLACE_WITH_ACTUAL_EXECUTABLE_HASH",
+  "external_vendor_root": "/absolute/path/to/original/Scalar-Dark-Matter-LPSD",
+  "peak_shape_file": null,
+  "candidate_start_indices": [0, 100, 200, 300, 400],
+  "coupling_grid_gev_inv": [0, 1e-13, 1e-12, 1e-11, 1e-10],
+  "local_sigma_threshold": 3.0,
+  "n_effective_trials": null,
+  "physics": {
+    "quadrature_power_fraction": [0.5, 0.5],
+    "reference_coupling_gev_inv": 1e-10,
+    "finesse_s": 1510.0,
+    "tau_s": 2.5e-9,
+    "tau1_s": 1e-8,
+    "rho_dm_gev4": 3.1e-42,
+    "unit_conversion": 1.519e24
+  },
+  "c_settings": {
+    "fs_hz": 2048.0,
+    "duration_s": 60.0,
+    "f_min_hz": 5.0,
+    "f_max_hz": 900.0,
+    "grid_bins": 1301,
+    "overlap_percent": 20,
+    "window": -2,
+    "psll_db": 238.13,
+    "regression": 0,
+    "input_scale": 1,
+    "epsilon": 10,
+    "memory_power": 26,
+    "kernel_threshold": 1e-15,
+    "a_option": 2,
+    "batch_count": 16
+  }
+}
