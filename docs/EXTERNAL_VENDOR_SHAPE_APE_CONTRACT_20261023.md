@@ -14,3 +14,19 @@ Length matching and sum-to-one alone do NOT show the external input shape includ
 
 ## Evidence and pending gates
 Focused contract tests were committed; no executable or genuine external peak-shape file was available for this run. Obtain the exact external `peak-shape-file` and its frequency definition and locate the archived PS-enabled C executable with independent binary SHA-256. Verify its native kernel, QWP RMS convention and X/Y signal fractions by injections. Original vendor/C, `main` and data unchanged.
+
+## Source audit correction: local sliding windows
+
+The original vendor's `make_args` defines `peak_size=len(peak_shape)`,
+then selects `freq_idx:freq_idx+peak_size` from the spectrum for each
+candidate starting bin. Thus peak-shape bins are **local consecutive
+candidate bins**, not the entire spectrum. The prior statement requiring
+peak-shape length to equal the full APE C-LPSD frequency-grid length was
+incorrect. Only the selected local window must match the shape length.
+The reference repository contains no committed peak-shape .npy example
+or generator, so an exact multibin numerical model cannot be asserted
+from its source alone. The unchanged single-bin default is `[1]`.
+No generic LIGO-specific frequency bins exist: grid differences, if any,
+come from choices of C-LPSD frequency-grid and time/window settings,
+not detector identity. Frequency-response and injection verification
+remain open when adopting any external multibin file.
