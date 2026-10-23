@@ -318,3 +318,71 @@ The existing source has a protected route for these operations, but a
 single input-to-candidate execution command is **not yet complete**.
 Do not merge into `main` or claim detection significance. No upper limit
 calculation has been added.
+
+## One-command native C PS -> vendor likelihood -> candidate smoke workflow
+
+Added `tools/run_ape_synthetic_candidates.py`, `src/ape_c_lpsd/spectral/short_synthetic_ps.py`, `src/ape_c_lpsd/analysis/synthetic_smoke.py`, `tools/stage_ape_ps_binary.sh` and `tests/test_ape_synthetic_run.py`. These provide a **synthetic-only, local Linux execution route**, distinct from the frozen historical 15,435-second / 5,035,956-bin APE profile.
+
+### Stage original validated archive, without modifying it
+
+The original frozen VIPER tarball is expected on the user's Mac at
+`~/Downloads/APE_PS_VIPER_VALIDATED_20261022.tar.gz`, with archive SHA-256:
+`0297b50652b06be90257e7471dc2cfce84cd15ed45add3129fdd34e0c2d6d48e`.
+
+```bash
+bash tools/stage_ape_ps_binary.sh \
+  "$HOME/Downloads/APE_PS_VIPER_VALIDATED_20261022.tar.gz" \
+  "$HOME/APE_PS_BINARY_STAGE_20261023"
+```
+
+The script prints the **different** executable SHA-256. The archived
+`build/lpsd-exec` was compiled on Linux; a Mac may inspect and stage it,
+but cannot be assumed to run it. Stage and verify on compatible Linux
+(VIPER). Supply the executable's own SHA-256 to the JSON configuration.
+
+### Run on a compatible Linux node with original vendor installed
+
+Copy `configs/ape_synthetic_candidate_smoke.example.json` to a run-specific
+JSON configuration. Provide a **new** `ape-synthetic-ps-*` run path, verified
+`ps_executable`, its `ps_sha256`, unchanged `external_vendor_root`, a
+physically justified QWP parameter configuration, and candidate index window.
+The sample physics values are illustrative, **not user-approved APE constants**.
+
+```bash
+PYTHONPATH=src:. python tools/run_ape_synthetic_candidates.py \
+  --config /absolute/path/to/synthetic_smoke.json
+```
+
+The requested explicit `synthetic_only=true`, `execute_c=true` controls
+are mandatory. This path creates **new** calibrated-radian 60 s X/Y
+coherent-tone noise fixtures; it does not use real data. For each quadrature,
+the original native C executable computes one Method-3 FFT and three
+Method-2 Constant-Q index partitions totaling **1301 bins**, with the same
+numerical flags as the fixed original synthetic validation case. Seven-column
+PS C outputs are split losslessly into legacy six-column PSD and two-column
+PS; PS sidecars are validated and concatenated in index order. It then uses
+the original vendor `fit_background.process_iteration` through
+`fit_window` and original `stats.log_likelihood` through the APE adapter.
+It scans a **caller-selected** set of candidate windows at a specified
+finite coupling grid and writes `manifest.json` and `candidates.csv`.
+`peak_shape_file=null` invokes vendor's original one-bin default `[1]`.
+All PS used for the vendor model is rad², not rad²/Hz. Results are
+**software-smoke candidates, not confirmed axion detections**.
+
+**Known limitations:** This synthetic fixture is a coherent sinusoid, not
+the physically broadened axion halo. Its arbitrary radian amplitude does
+not correspond to an injected physical coupling, so it **cannot verify
+coupling recovery**. User-supplied quadrature fractions and peak-to-RMS
+normalization are not independently established. The vendor likelihood,
+fit-quality and correlation/coverage assumptions have not been validated
+with the actual C output. No external C binary or original vendor package
+was available in the assistant's runtime; **no end-to-end native execution
+can be claimed yet**. The committed focused tests also require execution
+in the checked-out repository. Real-data processing, Slurm submission,
+upper limits and physical false-alarm significance are deliberately excluded.
+
+Focused checks (after checkout):
+```bash
+PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_ape_synthetic_run.py'
+PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_ape_candidate_pipeline.py'
+```
