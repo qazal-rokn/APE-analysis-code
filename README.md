@@ -279,3 +279,42 @@ and its creation method, if one was used. Matching the same frequency
 indices/Constant-Q settings and estimator power response remains to
 be verified on synthetic data; this is not permission to modify the
 signal shape speculatively.
+
+## Candidate pipeline integration (23 October 2026; no upper limits)
+
+**External source audit:** `scalar_dark_matter_lpsd/lvk/get_candidates.py`
+uses a one-sided `q0 = 2(logL_best-logL_null)` for positive `mu`,
+a trial-factor threshold, clustering, and H1/L1 detector consistency.
+**The script is not portable unchanged:** it uses H1/L1 interferometer
+identifiers, scalar-specific `get_beta`, a fixed one-bin candidate
+assumption, hard-coded optimizer scan settings, and a live
+`pdb.set_trace()` breakpoint. Its original terminal-cluster routine also
+does not append a still-active final cluster. X/Y in APE are quadratures
+of one experiment, not independent LIGO detectors.
+
+**Implemented (development branch):**
+- `analysis/ape_candidates.py`: vendor-inspired one-sided q0,
+  optional *assumed* effective-trial threshold and contiguous candidate
+  clustering; no H1/L1 consistency veto and no physical detection claim.
+- `analysis/ape_candidate_scan.py`: finite positive-coupling grid scan
+  using the unchanged external vendor likelihood and APE detector response.
+  Produces best-grid coupling, null/best log likelihoods and candidate list.
+  This is diagnostic ranking, not a calibrated significance or upper limit.
+- `analysis/ape_pipeline_controller.py`: guarded native C PS command-plan
+  constructor, 7-column batch sidecar finalization and two-channel
+  candidate-window PS reader with exact frequency alignment.
+- `tools/plan_ape_ps.py`: plan-only CLI requiring the PS-enabled C
+  executable and its own SHA-256. It does **not** run C or submit jobs.
+- `tests/test_ape_candidate_pipeline.py`: focused candidate clustering
+  and PS alignment checks.
+
+**Still missing for end-to-end execution:** the operator's actual verified
+PS-enabled C executable; the original vendor peak-shape .npy file if
+multi-bin signals are intended; a declared procedure for the native
+C frequency-window response; the real-vendor runtime; a fully automated
+16-batch execution/finalization pipeline and complete run manifest,
+candidate CSV/plots, end-to-end synthetic tests and calibrated trials.
+The existing source has a protected route for these operations, but a
+single input-to-candidate execution command is **not yet complete**.
+Do not merge into `main` or claim detection significance. No upper limit
+calculation has been added.
