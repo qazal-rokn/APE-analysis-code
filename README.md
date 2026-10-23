@@ -150,3 +150,33 @@ Minimal interface tests live in `tests/test_vendor_statistics_adapter.py`
 and `tests/test_qwp_likelihood_contract.py`.
 See `docs/ANALYSIS_CONTRACT_QWP_LIKELIHOOD_20261023.md`
 and `docs/EQUATION_REFERENCE.tex` for assumptions.
+
+## Synthetic end-to-end integration: milestone 1 (23 October 2026)
+
+**PS transport integration committed, execution not yet performed.**
+The existing six-column C command planner is preserved. New
+`src/ape_c_lpsd/spectral/ps_optin.py` provides an opt-in deep-copy wrapper
+that requires an actual executable path and an independently supplied exact
+SHA-256 of the experimental **PS-enabled** C binary. It changes only the
+executable, C format (`fDSNbri`) and batch output suffix (`.raw7`).
+The original C numerical flags and frequency partitions are unchanged.
+
+The validated streaming converter reads the native C seven-column output
+`frequency, PSD, PS, Navg, Nkernel, real, imaginary`. It preserves the
+original numeric tokens in separate legacy six-column `fDNbri` products
+and two-column `frequency,PS` sidecars. It enforces row counts, increasing
+frequencies, finite values, nonnegative spectra, and no overwrite.
+No spectral-estimation computation was replaced by NumPy, FFT or Welch.
+
+**Status boundary:** The VIPER PS-enabled C executable and its complete
+archived source are not available inside this session; the module has NOT
+executed that binary. The archive SHA-256 is **not** the executable SHA-256.
+This stage adds the opt-in transport interface only. End-to-end
+synthetic-to-physical-likelihood testing and actual C PS execution remain
+pending. The external C/vendor code and raw/calibrated data are untouched.
+See `docs/PS_OPTIN_SYNTHETIC_INTEGRATION.md`.
+
+Minimum local adapter check (no external C binary required):
+```bash
+PYTHONPATH=src python -m unittest tests.test_ps_optin
+```
