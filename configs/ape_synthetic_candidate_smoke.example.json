@@ -1,0 +1,31 @@
+{
+  "_note": "COPY, EDIT ALL run-specific values, then execute only with a validated native Linux PS binary. Software smoke only; NOT an axion halo injection, significance or upper limit.",
+  "synthetic_only": true,
+  "execute_c": true,
+  "run_dir": "/tmp/ape-synthetic-ps-first-run",
+  "ps_executable": "/absolute/path/to/validated/native-linux/lpsd-exec",
+  "ps_sha256": "REPLACE_WITH_ACTUAL_EXECUTABLE_SHA256",
+  "external_vendor_root": "/absolute/path/to/UNMODIFIED/Scalar-Dark-Matter-LPSD",
+  "fixture": {
+    "seed": 20261023,
+    "frequency_hz": 100.02043920755754,
+    "rms_rotation_rad": 1e-6,
+    "noise_rms_rad": 1e-8,
+    "phase_rad": 0.0,
+    "x_power_fraction": 0.5,
+    "fs_hz": 2048.0,
+    "duration_s": 60.0
+  },
+  "peak_shape_file": null,
+  "candidate_start_indices": [200, 400, 600, 800, 1000],
+  "quadrature_power_fraction": [0.5, 0.5],
+  "reference_coupling_gev_inv": 1e-10,
+  "coupling_grid_gev_inv": [0, 1e-13, 1e-12, 1e-11, 1e-10],
+  "local_sigma_threshold": 3,
+  "n_effective_trials": null,
+  "finesse_s": 1510.0,
+  "tau_s": 2.5e-9,
+  "tau1_s": 1e-8,
+  "rho_dm_gev4": 3.1e-42,
+  "unit_conversion": 1.519e24
+}
