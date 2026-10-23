@@ -28,8 +28,15 @@ def load_external(external_root):
     stats_file = root / "scalar_dark_matter_lpsd/lvk/stats.py"
     if not fit_file.is_file() or not stats_file.is_file():
         raise FileNotFoundError("Original external fit_background.py and stats.py required")
+    for name, expected in (("scalar_dark_matter_lpsd.lvk.stats", stats_file),
+                           ("scalar_dark_matter_lpsd.lvk.fit_background", fit_file)):
+        cached = sys.modules.get(name)
+        if cached is not None and Path(cached.__file__).resolve() != expected:
+            raise RuntimeError("Wrong vendor module already imported: " + name)
     sys.path.insert(0, str(root))
     from scalar_dark_matter_lpsd.lvk import fit_background, stats
+    if Path(stats.__file__).resolve() != stats_file or Path(fit_background.__file__).resolve() != fit_file:
+        raise RuntimeError("Vendor import provenance mismatch")
     hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
               for p in (fit_file, stats_file)}
     return fit_background, stats, hashes
@@ -73,34 +80,43 @@ def fit_window(frequency_hz, psd, external_root, *, settings=None):
     }
 
 
-def log_likelihood(mu, observed_psd, background_psd, signal_psd_template,
-                   skewnormal_parameters, external_root, *, weights=None):
-    """Delegate to UNMODIFIED vendor stats.log_likelihood.
-
-    signal_psd_template is REQUIRED. Physical APE axion response must be
-    supplied and validated separately. No default scalar-DM/LIGO template.
-    """
-    data = np.asarray(observed_psd, dtype=float)
-    bg = np.asarray(background_psd, dtype=float)
-    template = np.asarray(signal_psd_template, dtype=float)
-    pars = np.asarray(skewnormal_parameters, dtype=float)
-    if data.ndim != 1 or len(data) == 0 or bg.shape != data.shape or template.shape != data.shape:
-        raise ValueError("Observed/background/template must be matching 1D vectors")
-    if not all(np.isfinite(v).all() for v in (data, bg, template)) or (
-            np.any(data <= 0) or np.any(bg <= 0) or np.any(template < 0)):
-        raise ValueError("Invalid PSD or template values")
-    if pars.shape != (3,) or not np.isfinite(pars).all() or pars[1] <= 0:
-        raise ValueError("Expected finite (loc, scale, alpha)")
-    if not np.isfinite(mu) or mu < 0:
-        raise ValueError("Signal amplitude mu must be nonnegative")
-    # The legacy 'weights' keyword supplies the external peak_norm scalar;
-    # it is NOT a per-frequency statistical weighting vector.
-    w = np.ones(1) if weights is None else np.asarray(weights, dtype=float)
-    if w.shape != (1,) or not np.isfinite(w).all() or w[0] <= 0:
-        raise ValueError("Expected one positive scalar signal normalization")
+def log_likelihood(params, Y, bkg, peak_norm, peak_shape, model_args, external_root):
+    """Delegate original vendor likelihood. Y/bkg LOG power (M,N)."""
+    Y = np.asarray(Y, dtype=float)
+    bkg = np.asarray(bkg, dtype=float)
+    peak_norm = np.asarray(peak_norm, dtype=float)
+    peak_shape = np.asarray(peak_shape, dtype=float)
+    model_args = np.asarray(model_args, dtype=float)
+    if Y.ndim != 2 or 0 in Y.shape or bkg.shape != Y.shape:
+        raise ValueError("Y and bkg require equal nonempty (M,N)")
+    m, n = Y.shape
+    if (peak_shape.shape != (n,) or np.any(peak_shape < 0)
+            or not np.isclose(peak_shape.sum(), 1., rtol=1e-12, atol=1e-12)):
+        raise ValueError("peak_shape must be normalized nonnegative (N,)")
+    if model_args.shape != (m, 3) or np.any(model_args[:, 1] <= 0):
+        raise ValueError("model_args must be (M,3) with positive scale")
+    try:
+        np.broadcast_shapes(peak_norm.shape, Y.shape)
+    except ValueError as exc:
+        raise ValueError("peak_norm must broadcast to (M,N)") from exc
+    if not all(np.isfinite(x).all() for x in (Y, bkg, peak_norm, peak_shape, model_args)):
+        raise ValueError("Nonfinite inputs")
+    if np.any(peak_norm < 0) or not np.isscalar(params) or not np.isfinite(params):
+        raise ValueError("Invalid normalization or signal parameter")
     _, stats, _ = load_external(external_root)
-    # Vendor contract: (mu, log_observed[1,N], log_background[1,N],
-    #                   peak_norm: scalar, peak_shape[N], model_args[1,3]).
     return float(stats.log_likelihood(
-        float(mu), np.log(data)[None, :], np.log(bg)[None, :],
-        float(w[0]), template, pars[None, :]))
+        float(params), Y, bkg, peak_norm, peak_shape, model_args))
+
+
+def factor_power_template(signal_power):
+    """Exactly factor reference signal PS (M,N) into vendor shape and norm."""
+    power = np.asarray(signal_power, dtype=float)
+    if power.ndim != 2 or 0 in power.shape or not np.isfinite(power).all() or np.any(power < 0):
+        raise ValueError("Expected finite nonnegative signal PS (M,N)")
+    sums = power.sum(axis=0)
+    if sums.sum() <= 0:
+        raise ValueError("Zero signal template")
+    shape = sums / sums.sum()
+    norm = np.zeros_like(power)
+    np.divide(power, shape[None, :], out=norm, where=shape[None, :] > 0)
+    return norm, shape
