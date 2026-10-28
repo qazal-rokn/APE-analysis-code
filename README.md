@@ -699,3 +699,32 @@ Choose physically reviewed amplitudes; do not interpret `g` as calibrated.
 Refer to `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
 
 No previous experimental input, vendor, C or physical calibration is modified.
+
+## Paper-like physical linewidth injection: native-C end-to-end (2026-10-28)
+
+The opt-in `tools/run_paper_axion_like_injection.py` now creates an actual
+201-second, 20-kHz synthetic X/Y time series with a 5000-Hz rest carrier and
+many random-phase velocity modes from a truncated, boosted Maxwellian benchmark.
+The physically motivated line is NOT seven user-chosen frequency bins.
+A matched noise-only control uses identical underlying readout noise. The
+unchanged original C executes on both pairs (four channel runs in total),
+followed by the original vendor background and likelihood. The C grid is
+1301 bins, log-spaced exactly at Q=1e6. The candidate bins for the final
+multi-bin diagnostic are chosen by predicted Kaiser-convolved signal power,
+not a fixed seven-bin window. The earlier single-bin diagnostic still runs
+only as part of the existing unmodified pipeline.
+
+The benchmark's velocity parameters, fixed lab motion, explicit 90-degree
+surrogate X/Y phase and provisional QWP amplitude are recorded in its report.
+It is not an exact astrophysical field model, not a complete physical APE
+optical phase transfer, and not a 95% coverage or significance validation.
+Single finite 201-second realization means halo power is stochastic; no
+promised per-realization recovery tolerance. The full run writes only into a
+new `ape-paper-axion-*` directory and refuses to overwrite prior results.
+
+Use `PYTHONPATH=src:.:/source python -B -m tools.run_paper_axion_like_injection`
+with explicit `--existing-config`, `--output-dir`, `--coupling-gev-inv`,
+`--noise-rms-rad` and `--run-c`. Run the focused unit tests first:
+`PYTHONPATH=src:.:/source python -B -m unittest discover -s tests -p test_paper_axion_like_injection.py`.
+
+See `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
