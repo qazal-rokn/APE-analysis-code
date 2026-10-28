@@ -131,7 +131,7 @@ def produce_pair(out, *, config, count, seed, coupling, noise_rms, block_size=26
             f.create_dataset("vendor_shape_weights", data=np.full(count, 1/count))
             for attr, val in {
                 "synthetic_only": True, "unit": "rad",
-                "model": "stochastic_gaussian_vendor_shape",
+                "model": "finite_random_phase_halo_plane_wave_superposition",
                 "source_paper_doi": PAPER_DOI, "seed": seed,
                 "fs_hz": FS, "duration_s": DURATION,
                 "rest_frequency_hz": F_REST,
@@ -356,7 +356,7 @@ def main():
             cfg=dict(config)
             cfg.update(
                 synthetic_only=True,execute_c=True,
-                input_kind="synthetic_halo_file",require_stochastic_halo=True,
+                input_kind="synthetic_halo_file",require_stochastic_halo=False,
                 input_hdf5=str(paths[key]),run_dir=str(dest/("ape-pipeline-"+key)),
                 c_settings=native_setting,peak_shape_file=None,
                 statistical_mode="finite_grid",candidate_start_indices=[
