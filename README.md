@@ -763,3 +763,39 @@ and `axion_like_recovery_report.json`. Do not treat the default
 `stochastic_gaussian_vendor_shape` provenance marker as physically
 validated SHM/APE X/Y statistics; this source has the additional true
 halo parameter and phase-surrogate metadata. No real-data operation.
+
+## Axion-like 5 kHz physical-line injection (2026-10-28)
+
+The separately approved `tools/run_paper_axion_like_injection.py` implements
+a **synthetic-only** stochastic mode-superposition benchmark using the 2026
+Göttel–Raymond paper's Eq. (5) Maxwell–Boltzmann velocity distribution:
+`Theta_0=229 km/s`, component dispersion `sqrt(3/2)*Theta_0`,
+escape cutoff `528 km/s`. It uses a documented fixed 229-km/s
+lab boost (NOT the paper's full orbital treatment). Each Fourier mode has
+the kinetic frequency `f_rest*(1+v_lab^2/(2c^2))`, a shared continuous
+time-domain random phase, and the pre-existing provisional QWP amplitude
+response. The X/Y 90-degree relationship is an explicit nonvalidated
+surrogate. No arbitrary 7-bin spectral shape is assigned; the modeled
+mode frequencies and the analytic native C window select the local support.
+
+For a paper-Q `Q=10^6` and `f_rest=5000 Hz` the 20-kHz,
+201-second synthetic recording contains 4,020,000 samples per channel.
+Two paired noise-only/injection HDF5 fixtures are written with a fixed seed
+and full source/model metadata. Optional explicit `--run-c` runs native
+C via existing controller on both, then fits the unchanged vendor background
+and evaluates vendor likelihood. A short focused pure-math test is
+`python -m unittest discover -s tests -p test_ape_paper_halo_injection.py -v`.
+
+Run from the existing Docker checkout with:
+```bash
+export PYTHONPATH=/work/ape-pipeline/src:/work/ape-pipeline:/source
+/work/ape-statistics-venv/bin/python -B -m tools.run_paper_axion_like_injection \
+ --existing-config /tmp/ape_unified_native_c_20261028.json \
+ --output-dir /work/ape-paper-axion-halo-20261028 \
+ --coupling-gev-inv 1e-10 --noise-rms-rad 3e-10 --modes 1024 \
+ --run-c
+```
+The C run has NOT been completed or benchmarked by the developer. This is one
+bounded end-to-end realization, not detection significance, calibrated
+95% coverage, SHM epoch-matched lab halo or physical APE coupling limits.
+Never run it against real data without a later explicit approval.
