@@ -830,3 +830,37 @@ software-benchmark settings, **not** APE measured experimental noise or
 a physical sensitivity prediction. No extra signal or PS normalization.
 Interpretation: frequency/strength local diagnostic only; no global
 false-alarm, physical g constraints or axion-model coverage.
+
+## Paper-2026 axion-like injection milestone (synthetic only; 28 October 2026)
+
+Run with `python -B -m tools.run_paper_axion_like_injection`, never as a
+direct `tools/xxx.py` script (to avoid shadowing the `ape_c_lpsd` package).
+This bounded test injects a 5000-Hz rest-mass line built from a truncated,
+boosted virialized halo into actual 201-second 20-kHz-sampled synthetic
+rho_x/rho_y data. It processes a paired noise-only control and the injected
+pair through the original PS-enabled native C and vendor background and
+likelihood. The C frequency grid uses Q=1e6 and 1301 bins; *signal support*
+is selected from the expected halo response, not from a fixed seven-bin toy.
+The input statistical halo model is frozen for reproducibility, using a
+fixed lab frame and no annual motion. APE's QWP amplitude transfer is still
+provisional, and the X/Y 90-degree phase mapping is a surrogate.
+
+Single-command pilot usage (run from /work/ape-pipeline, inside Linux Docker):
+
+```bash
+export PYTHONPATH=/work/ape-pipeline/src:/work/ape-pipeline:/source
+/work/ape-statistics-venv/bin/python -B -m unittest discover \
+  -s tests -p 'test_ape_paper_axion_injection.py' -v
+/work/ape-statistics-venv/bin/python -B -m tools.run_paper_axion_like_injection \
+  --existing-config /tmp/ape_unified_native_c_20261028.json \
+  --output-dir /work/ape-paper-axion-5000hz-20261028 \
+  --coupling-gev-inv 1e-10 --noise-rms-rad 1e-10 --modes 1024 --run-c
+```
+
+One pair, not a statistical coverage campaign. Files are always brand-new
+and never overwrite C, vendor, raw data or previous pilot results. The
+paper's scalar-LIGO coupling conversion MUST NOT be interpreted as APE
+pseudoscalar QWP calibration. Full axion astrophysical coherence, fixed
+lab motion, real-data X/Y covariance, and calibrated physical recovery
+remain pending. See the scientific contract
+`docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
