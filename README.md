@@ -530,3 +530,36 @@ Multi-bin vendor optimizer range scanning needs separate scientific review.
 ## Vendor MLE to local candidate report (28 October 2026)
 
 `analysis/ape_vendor_candidate_report.py` connects the existing original-vendor single-bin MLE/expected-UL bridge to the existing APE local q0 candidate clustering. It neither changes the vendor statistic nor calculates global significance or observed upper limits. The pilot accepts only already-prepared, single-bin likelihood inputs and makes no claims of physical APE stochastic-axion recovery or coverage.
+
+## Opt-in single-bin original vendor MLE orchestration (28 October 2026)
+
+On `development/likelihood`, `tools/run_ape_pipeline.py` now has an **opt-in**
+`statistical_mode="vendor_mle_single_bin"`. Its existing default
+`finite_grid` diagnostic mode is preserved. The new mode reuses the same
+verified synthetic-only input gate, native PS-enabled C-LPSD execution on
+rho_x/rho_y, vendor background fits, and specified C frequency indices. For
+each selected **one-bin** window it calls the existing original-vendor signed
+MLE adapter, APE local candidate clustering, and original-vendor asymptotic
+expected-upper-limit bridge. Results go into the existing `manifest.json`
+under `vendor_mle_report` and `candidates.csv` without rewriting vendor
+algorithms. Candidate-selection frequencies are explicit and **not blind**.
+
+Configure a run-specific copy of `configs/ape_pipeline_synthetic.example.json`
+using the **additional mode settings** in
+`configs/ape_vendor_mle_single_bin.mode.example.json`. These are additive
+keys, not a stand-alone full pipeline config. This integration does NOT
+self-generate a signal, enable real data, re-run cleaning/calibration, or
+make validated coupling/global-significance/physical-coverage claims.
+The one-bin MLE adapter rejects multi-bin inputs. A failure of the original
+vendor sigma or expected-limit evaluation currently **fails the run** rather
+than treating an invalid limit as successful; partial outputs remain in the
+new isolated run directory. Run focused tests in the actual Linux container:
+
+```bash
+PYTHONPATH=src:. python -m unittest tests.test_ape_unified_pipeline
+```
+
+The accepted frozen-segment calibration remains available separately through
+`tools/calibrate_frozen_segment_to_hdf5.py`. Its reference sources, provenances,
+and the real-data gate are not changed by this integration. Read the contract in
+`docs/ANALYSIS_CONTRACT_UNIFIED_PIPELINE_ORCHESTRATION_20261028.md`.
