@@ -38,4 +38,7 @@ Candidate scan index/range and blind-selection policy; how many vendor-sigma fai
 NOT AUTHORIZED. No passing real/hybrid observations through a synthetic-only gate by changing metadata.
 
 ## STATUS
-DRAFT: AWAITING EXPLICIT RESEARCHER APPROVAL OF THIS ANALYSIS CONTRACT BEFORE SCIENTIFIC CODE CHANGES.
+RESEARCHER APPROVED IN CHAT, 2026-10-28. Opt-in single-bin vendor MLE integration implemented on development/likelihood. Existing finite-grid route and original external C/vendor/calibration/cleaning code unchanged. Focused Linux execution and numeric regression tests still pending; no claim of physical signal recovery or real-data authorization.
+
+## IMPLEMENTATION AUDIT
+User request: link existing validated modules, not rebuild them. Code: opt-in branch in tools/run_ape_pipeline.py; vendor source unchanged, one-bin helper prepares explicit windows, bridge invokes original MLE, APE clustering, original expected UL. Validation artifacts: tests/test_ape_unified_pipeline.py newly committed but not yet executed in user Linux container. Documentation: README and EQUATION_REFERENCE updated. Known contract limitation: original vendor sigma/UL failure currently aborts run, not per-bin failure records; change only under separate approval. Calibration and cleaning remain a separate existing approved executable and have not been joined into direct real-data execution.
