@@ -107,10 +107,12 @@ def execute(config):
     """Explicit synthetic-run execution, no self-generating signal or silent defaults."""
     if config.get("synthetic_only") is not True or config.get("execute_c") is not True:
         raise ValueError("Requires explicit synthetic_only and execute_c true")
-    source=validate_input(config)
+    # Reject unsafe or pre-existing output paths before inspecting input files.
+    # This is a no-overwrite guard, not a change to scientific processing.
     output=Path(config["run_dir"]).expanduser().resolve()
     if output.exists() or not output.name.startswith("ape-pipeline-"):
         raise ValueError("Use a brand-new ape-pipeline-* directory")
+    source=validate_input(config)
     if output==source or output in source.parents:
         raise ValueError("Unsafe output directory")
     # Verify executable *before* opening new outputs.
