@@ -264,3 +264,17 @@ This is not an observed upper limit or a physical APE coverage assertion.
 % nominal profile 95pct two-sided threshold chi2_1(95pct)=3.841.
 % Neither threshold is asserted to be calibrated for the actual APE bins.
 % Frequency-domain shared Gaussian amplitudes are NOT a substitute for native C.
+
+% Approved paper-inspired 5 kHz injection benchmark (2026-10-28)
+% Galactic field modes: v_gal ~ N(0,sigma_1D^2 I), |v_gal| <= v_escape,
+% v_lab = v_gal - v_lab_fixed; f(v)=f_rest*(1+|v_lab|^2/(2*c^2)).
+% Analytic envelope E(t)=g/sqrt(Nm) sum_m R_QWP(f_m)
+%                       * exp[i(2*pi*(f_m-f_rest)*t + phi_m)].
+% Generated rho_X, rho_Y are one common stochastic envelope, with an
+% explicitly surrogate 90-degree phase mapping; NOT a derived complex QWP
+% transfer function. Noise-only and injected use paired white Gaussian noise.
+% Native C-LPSD Q=1e6, 201s, original 238.13-dB Kaiser, PS rad^2.
+% Vendor model B_qj + (g/g_ref)^2 * T_qj, same unchanged skew-log PS statistic.
+% The variable-bin halo template is built from actual native C frequency grid.
+% This is one injected realization, NOT validated frequency/global trial
+% significance, stochastic axion recovery ensemble, or 95pct physical coverage.
