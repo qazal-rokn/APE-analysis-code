@@ -323,3 +323,21 @@ This is not an observed upper limit or a physical APE coverage assertion.
 % support; source-respecting stochastic field may cause substantial
 % realization-to-realization signal-strength fluctuations.
 % No physical significance, coupling limits, or coverage from one realization.
+
+% 2026 Göttel and Raymond paper-based exploratory APE injection:
+% Galactic components v_i ~ N(0,sigma_v^2), ||v_gal|| <= v_escape,
+% sigma_v = Theta0 sqrt(3/2), Theta0=229 km/s, v_escape=528 km/s;
+% fixed benchmark lab vector v_lab of magnitude Theta0, no annual orbit.
+% f_k = f_rest * [1+||v_gal,k-v_lab||^2/(2c^2)].
+% A single finite random-phase superposition
+% A(t)=g/sqrt(M) * sum_k R_QWP(f_k) exp[i 2pi(f_k-f_rest)t+i phi_k],
+% and rho_x(t)=sqrt(alpha_x) Re[A(t) exp(i 2pi f_rest t)];
+% rho_y(t)=sqrt(alpha_y) Im[A(t) exp(i 2pi f_rest t)].
+% Alpha_x + alpha_y = 1: X/Y phase relation is a SURROGATE, not
+% measured APE optical response. Under phase ensemble E[PS_qj] =
+% g^2/2 * alpha_q * mean_k[R_QWP(f_k)^2 W(f_j,f_k)],
+% with C Kaiser W normalized to unity for a centered coherent tone,
+% NOT unit-sum across overlapping C output bins.
+% Original vendor background and skew-normal likelihood retained.
+% A single finite realization and paired noise-only control cannot
+% establish physical axion coverage/significance.
