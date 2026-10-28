@@ -646,3 +646,22 @@ This experiment does **not** validate actual APE X/Y cross-covariance,
 signal stochasticity, real-data false-alarm or limit coverage. Its 7-bin
 Gaussian window does not simulate native variable-length constant-Q C
 processing. See `docs/ANALYSIS_CONTRACT_JOINT_BIN_STATISTICS_20261028.md`.
+
+## Paper-inspired 5 kHz axion-like time-domain injection (2026-10-28)
+
+New isolated `tools/run_paper_axion_like_injection.py` (approved research benchmark) replaces the arbitrary seven-bin toy as the *physical-signal injection* test. It draws random Galactic velocity modes from a truncated isotropic 3D Gaussian, applies a fixed lab velocity, maps velocity to kinetic frequency offset, and synthesizes one common-phase stochastic field at 5 kHz with a 201 s recording. It applies the *existing provisional* QWP amplitude response and a **surrogate, unvalidated** X/Y quadrature phase mapping, plus paired noise-only readout noise. Native C-LPSD's frequency grid is Q=1e6 and its original Kaiser window is not modified. Actual signal window selection comes from a modeled Kaiser*halo template, NOT a fixed seven-bin assumption.
+
+Invocation (requires a config whose original C executable hash and physics are already verified):
+```bash
+PYTHONPATH=src:.:/source python -m tools.run_paper_axion_like_injection \\
+  --existing-config /tmp/ape_unified_native_c_20261028.json \\
+  --output-dir /work/ape-paper-axion-injection-20261028 \\
+  --coupling-gev-inv 1e-10 --noise-rms-rad 1e-9 \\
+  --modes 1024 --run-c
+```
+
+**The coupling and noise values above are merely example values; the operator must use an independently justified injection amplitude and benchmark noise level**, never infer physical coupling recovery from an arbitrary selection. The run performs TWO native-C paired recordings (injected and noise-only), each with X/Y, then original vendor fitting and a grid-matched likelihood diagnostic. There is no new normalization or physical detection/95% UL claim. No C reruns to debug normalization. The output directory must be new, and the source input config is read-only.
+
+Focused mathematical tests: `PYTHONPATH=src:.:/source python -B -m unittest discover -s tests -p test_paper_axion_like_injection.py -v`.
+
+Remaining scientific limits: fixed lab velocity without Earth orbit, finite mode/realization sampling, QWP transfer phase approximation and single-realization recovery without confidence-interval coverage. The generated HDF5 uses `stochastic_gaussian_vendor_shape` only to meet the existing synthetic-only provenance gate; the detailed attributes contain the actual random-phase mode prescription and explicitly unvalidated X/Y phase. See `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
