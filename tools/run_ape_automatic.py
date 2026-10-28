@@ -8,6 +8,7 @@ Native C and vendor likelihood are never executed by this stage.
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import json
 import math
@@ -159,11 +160,26 @@ def prepare(config_path: Path, *, require_mac: bool = False):
     library = ref / "vendor/dewesoft/5.0.8/DWDataReaderLib64.dylib"
     if not wrapper.is_file() or not library.is_file():
         raise FileNotFoundError("Original macOS Dewesoft library/wrapper missing")
-    if require_mac and sys.platform != "darwin":
-        raise RuntimeError(
-            "DXD calibration runs on macOS with the original .dylib, "
-            "not inside Linux Docker"
-        )
+    if require_mac:
+        if sys.platform != "darwin":
+            raise RuntimeError(
+                "DXD calibration runs on macOS with the original .dylib, "
+                "not inside Linux Docker"
+            )
+        # Fail before creating the run directory: an Intel Python (including
+        # Rosetta/Intel Conda) cannot load an arm64 Dewesoft library.
+        try:
+            ctypes.CDLL(str(library))
+        except OSError as exc:
+            raise RuntimeError(
+                "Dewesoft dynamic-library preflight failed before any output "
+                "was created. Python executable: " + sys.executable +
+                "; Python process architecture: " + platform.machine() +
+                "; library: " + str(library) +
+                ". Use a compatible native arm64 Python interpreter and "
+                "matching scientific packages, then run with a NEW run_id. "
+                "Do not overwrite or delete the failed run."
+            ) from exc
 
     # The historical input YAML may contain C_trans=0.020. Never edit it.
     # Build a run-specific snapshot with the researcher's confirmed values.
