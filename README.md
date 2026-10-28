@@ -799,3 +799,34 @@ The C run has NOT been completed or benchmarked by the developer. This is one
 bounded end-to-end realization, not detection significance, calibrated
 95% coverage, SHM epoch-matched lab halo or physical APE coupling limits.
 Never run it against real data without a later explicit approval.
+
+## Paper-2026 axion-like halo injection: native C and original vendor (synthetic only)
+
+See `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`
+and `tools/run_paper_axion_like_injection.py`. This is the focused
+researcher-approved 5 kHz time-domain injection benchmark, **not** the prior
+seven-bin Gaussian-covariance diagnostic. A truncated, boosted virialized
+Galactic Maxwellian (paper Eq. 5; theta0=229 km/s; vesc=528 km/s; fixed
+v_lab=229 km/s) yields continuous off-grid plane-wave modes with shared
+phase evolution. The paper's scalar LIGO response is replaced by the
+**provisional** APE QWP amplitude envelope and a declared surrogate 90-degree
+X/Y phase relation. The native C sampling is Q=1e6, fs=20 kHz, 201 s and
+1301 log bins centered on 5 kHz. The prescribed finite-duration single
+halo realization does not validate physical APE phase or 95% coverage.
+
+Run as a module from /work/ape-pipeline after fast-forward checkout, with
+PYTHONPATH=/work/ape-pipeline/src:/work/ape-pipeline:/source. The one test
+is `python -B -m unittest discover -s tests -p test_ape_paper_axion_like_injection.py -v`.
+The single run is `python -B -m tools.run_paper_axion_like_injection --existing-config
+/tmp/ape_unified_native_c_20261028.json --output-dir
+/work/ape-paper-axion-5khz-20261028 --coupling-gev-inv 1e-10
+--noise-rms-rad 2e-10 --modes 1024 --seed 20261028 --run-c`.
+Output directory must be new. This performs one injected and one
+paired noise-only C and original-vendor stage; no other C jobs.
+The output report is `axion_like_recovery_report.json`.
+
+The injected coupling and white-sample-noise amplitude are controlled
+software-benchmark settings, **not** APE measured experimental noise or
+a physical sensitivity prediction. No extra signal or PS normalization.
+Interpretation: frequency/strength local diagnostic only; no global
+false-alarm, physical g constraints or axion-model coverage.
