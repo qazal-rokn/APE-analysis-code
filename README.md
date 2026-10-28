@@ -605,3 +605,44 @@ cd /work/ape-pipeline
 PYTHONPATH=src:. /work/ape-statistics-venv/bin/python -B -m unittest tests.test_ape_multibin_diagnostic
 ```
 See `docs/ANALYSIS_CONTRACT_MULTIBIN_APE_20261028.md`.
+
+## Single-campaign joint-bin statistical benchmark (28 October 2026)
+
+`tools/validate_ape_joint_bins.py` is a read-only synthetic statistics
+diagnostic using the previously generated 7-bin Q=10^6 APE QWP template.
+The program draws **shared** Gaussian complex noise coefficients with a
+source-derived same-length Kaiser-bin covariance and an independent-bin
+control, keeping the original vendor's log-power skew-normal product
+likelihood unchanged. The injected signal is explicitly a coherent mean
+envelope with one shared random phase, **not** a calibrated stochastic
+axion-halo injection. A fitted log-exponential skew-normal null marginal
+is a declared benchmark approximation.
+
+No real data, compiled C execution, new normalization, native-file edits,
+calibration changes, or physical limits are involved.
+
+One command, in the user Linux container checkout:
+```bash
+export PYTHONPATH=/work/ape-pipeline/src:/work/ape-pipeline:/source
+/work/ape-statistics-venv/bin/python -B -m unittest discover -s tests -p test_ape_joint_bins.py -v
+/work/ape-statistics-venv/bin/python -B tools/validate_ape_joint_bins.py \
+  --synthetic-only \
+  --template /work/ape-lab-maxwellian-benchmark-20261028/ape_lab_maxwellian_multibin_5khz.npz \
+  --config /tmp/ape_unified_native_c_20261028.json \
+  --vendor /source \
+  --outdir /work/ape-joint-bin-statistics-20261028
+```
+
+Default predeclared seed 20261028, 2048 null and 2048 injected draws per
+condition, 7 bins, 161 mu grid points from 0 to 4, injected mu=1, X/Y
+complex-noise correlation=0, median T/B=0.3 at mu=1. Results include
+observed null q0 false-positive frequency at nominal local 5%, mean/median
+recovered mu, nominal profile-likelihood 95% coverage and empirical
+adjacent-bin power correlation for both conditions. The output directory
+must not exist. Original vendor numerical parity is checked on sample
+likelihood values during the run.
+
+This experiment does **not** validate actual APE X/Y cross-covariance,
+signal stochasticity, real-data false-alarm or limit coverage. Its 7-bin
+Gaussian window does not simulate native variable-length constant-Q C
+processing. See `docs/ANALYSIS_CONTRACT_JOINT_BIN_STATISTICS_20261028.md`.
