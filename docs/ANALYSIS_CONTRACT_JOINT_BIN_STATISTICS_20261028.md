@@ -1,4 +1,4 @@
-# Analysis Contract: APE joint-bin statistical validation (DRAFT, 2026-10-28)
+# Analysis Contract: APE joint-bin statistical validation (APPROVED, 2026-10-28)
 
 ## REQUESTED
 Evaluate original paper likelihood assumptions, quantify C-LPSD neighboring-bin and X/Y dependence, and perform ONE consolidated, efficient synthetic inference validation for strength recovery and false-positive behavior. No repeated C normalization tests.
@@ -14,7 +14,7 @@ Using the original C Kaiser window with PSLL=238.13 dB, alpha=9.549175266675151,
 ## UNDERSTANDING
 Scientific goal is not to prove the unchanged vendor code executes again. It is to determine how much dependence modifies false alarms, effective information and nominal upper-limit coverage. The physical stochastic axion time-domain and X/Y phase model must be explicitly defined and validated before physical g recovery claims.
 
-## PLANNED IMPLEMENTATION (REQUIRES RESEARCHER APPROVAL)
+## APPROVED IMPLEMENTATION
 1. Add one opt-in, **read-only** statistics-validation program outside the original vendor/C and outside existing prior result paths. Reuse the existing precomputed C kernel, original log-likelihood function and source-verified halo/QWP convention.
 2. Record the actual baseline dataset conditions and signal-generation prescription, seed and noise representation. If appropriate validated *noise-only* independent realizations are unavailable, use a clearly labeled analytic/stochastic covariance benchmark first; DO NOT claim to have measured APE noise covariance from a single coherent pilot or from seven spectral powers.
 3. For a prespecified local candidate window, build one **controlled ensemble** with null and injected signals using shared (rather than independent per-bin) underlying random degrees of freedom. Preserve original expected field coherence assumptions; synthetic benchmark noise model declared explicitly. No new C execution if a statistically legitimate frequency-domain simulation is sufficient for this diagnostic. Do not invent per-bin independent DM powers.
@@ -44,4 +44,4 @@ The physical APE axion stochastic field and X/Y phase covariance prescription, w
 NOT AUTHORIZED.
 
 ## STATUS
-DRAFT for researcher approval. Read-only source audit and idealized analytic benchmark completed. No new statistical analysis implementation and no inference validation performed.
+APPROVED by researcher in chat 2026-10-28. A bounded synthetic Gaussian-noise / coherent-mean diagnostic, `tools/validate_ape_joint_bins.py`, plus focused `tests/test_ape_joint_bins.py` implemented on development/likelihood. Original vendor numerical parity checked at runtime; original C/vendor untouched. Output includes null local q0 false-positive rate, injected mu recovery and nominal likelihood-ratio coverage under the stated, intentionally simplified stochastic model. No APE physical coverage, real-data inference, or new C run. Linux execution pending. Known limitations: equal-length Kaiser bins approximated; analytic signal mean-envelope is NOT a physical stochastic axion halo, product likelihood marginal is fitted to log-exponential under null; actual APE log residual and X/Y covariance not established. Any replacement covariance-aware likelihood would need separate approval.
