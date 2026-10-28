@@ -514,3 +514,19 @@ real vendor background fit/quality must pass; `candidate_start_indices`
 currently controls scan coverage. Running five example start indices is
 not a full-frequency search. A calibrated global significance is not
 available and no upper limits are calculated.
+
+
+## Opt-in original vendor MLE to expected UL (28 October 2026)
+
+`analysis/ape_vendor_fit.py` calls unchanged vendor `calc_max_lkl` on
+precomputed, calibrated APE single-bin power-likelihood windows and forwards
+the returned `sigma_mu` to the unchanged `get_upper_limits_approx` adapter.
+One-sided `q0` uses the original vendor definition. This software parity
+checkpoint is not an APE physical axion injection validation, not an observed
+upper limit, and not included in the synthetic-only full C controller yet.
+Multi-bin vendor optimizer range scanning needs separate scientific review.
+
+
+## Vendor MLE to local candidate report (28 October 2026)
+
+`analysis/ape_vendor_candidate_report.py` connects the existing original-vendor single-bin MLE/expected-UL bridge to the existing APE local q0 candidate clustering. It neither changes the vendor statistic nor calculates global significance or observed upper limits. The pilot accepts only already-prepared, single-bin likelihood inputs and makes no claims of physical APE stochastic-axion recovery or coverage.

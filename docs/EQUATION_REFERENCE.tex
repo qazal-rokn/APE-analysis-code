@@ -192,4 +192,34 @@ All parameter inputs are user specified. Peak/RMS and X/Y response
 are provisional until injection validated, as is the complete
 physical likelihood normalization.
 
+
+\section*{Original vendor candidate and expected-UL adapter (single-bin pilot)}
+For the unmodified external vendor log likelihood $\ell(\mu)$ and its signed
+maximum-likelihood estimate $\hat\mu$ with fitted uncertainty $\sigma_\mu$,
+\begin{equation}
+q_0=\begin{cases}
+2[\ell(\hat\mu)-\ell(0)], & \hat\mu>0,\\
+0, & \hat\mu\leq 0.
+\end{cases}
+\end{equation}
+The external vendor asymptotic routine returns $\sqrt{\mu_{\mathrm{UL}}}$
+from $\sigma_\mu$, at a specified confidence level, and the APE coupling
+conversion is $g_{a\gamma\gamma}^{\mathrm{UL}}=
+ g_{\mathrm{ref}}\sqrt{\mu_{\mathrm{UL}}}$.
+This is an \emph{expected} limit, not a physical coverage validation or an
+observed limit. The present wrapper is restricted to the vendor's default
+single-bin shape; the physical multi-bin halo and C-LPSD correlations have
+not been validated.
+
+
+\section*{Provisional original-vendor MLE to APE local candidate report}
+For the existing single-bin pilot, each scanned frequency uses the original
+vendor signed-parameter maximum-likelihood estimate and one-sided statistic
+$q_0$ defined above. The already-existing APE candidate grouping retains
+the largest $q_0$ in each contiguous above-threshold cluster, including a
+cluster ending at the final scanned bin. The threshold is local only;
+no effective-trial count is assumed. Each fitted $\sigma_\mu$ is passed to
+the unchanged vendor asymptotic \emph{expected} 95\% upper-limit function.
+This is not an observed upper limit or a physical APE coverage assertion.
+
 \end{document}
