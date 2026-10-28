@@ -1,0 +1,15 @@
+# One run contract for the APE automatic raw-DXD -> calibrated-HDF5 stage.
+# Paths refer to the Mac filesystem, not Linux Docker.
+# No output is written without --execute-calibration.
+# A previously frozen validated segment and its .sha256.json provenance
+# are required; no unsafe automatic chronology guessing.
+source_root: /Users/user/Desktop/APE_Research/APE-data-analysis-c-lpsd
+frozen_segment_manifest: /Users/user/Desktop/APE_Research/APE-data-analysis-c-lpsd/data_files/frozen_segments/frozen-segment-d17c1731144c4912b79ff3fb96b23358.json
+dxd_ingestion_config: /path/to/existing/dxd_ingestion_run.yaml
+output_root: /path/to/new/ape-runs
+run_id: ape-run-20261028-c0284-v1
+calibration:
+  cavity_transmission_w_per_v: 0.0284
+  responsivity_a_per_w: 0.7
+  transimpedance_gain_v_per_a: 1000000.0
+  second_harmonic_pd_response: 0.7
