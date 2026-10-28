@@ -223,3 +223,17 @@ the unchanged vendor asymptotic \emph{expected} 95\% upper-limit function.
 This is not an observed upper limit or a physical APE coverage assertion.
 
 \end{document}
+
+
+% 2026-10-28, approved opt-in orchestration scope (single-bin vendor model).
+% For calibrated rho_x/rho_y [rad], the compiled C direct PS is [rad^2].
+% The one-bin vendor likelihood receives Y_{m,1}=ln PS_{m,1},
+% bkg_{m,1}=ln B_{m,1}, peak_shape=[1], and explicitly computed
+% reference power peak_norm_{m,1}, with mu=(g/g_ref)^2.
+% Original vendor signed-mu optimizer is unchanged; q0=2(lnLmax-lnL0)
+% for muhat>0 and q0=0 otherwise. sqrt(q0) is LOCAL only.
+% Original expected UL maps sigma_mu -> sqrt(mu_UL); multiplying by g_ref
+% is a PROVISIONAL asymptotic expected g limit, neither an observed UL nor
+% validated APE 95-percent coverage. No ad hoc C PS response correction.
+% The actual C window kernel, multi-bin axion shape, global trials and physical
+% X/Y normalization are separate unresolved validation gates.
