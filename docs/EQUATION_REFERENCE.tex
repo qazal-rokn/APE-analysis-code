@@ -251,3 +251,16 @@ This is not an observed upper limit or a physical APE coverage assertion.
 % candidate significance, or expected UL; interbin covariance and physical
 % APE halo/QWP and X/Y response remain scientifically unvalidated.
 % No extra K or normalization factor was added.
+
+% Joint-bin synthetic statistical benchmark, approved 2026-10-28.
+% Let z_q ~ CN(0,C) where C_jk=<w_j,w_k>_2 / sqrt(<w_j,w_j>_2<w_k,w_k>_2)
+% is the normalized, same-length Kaiser window noise coefficient covariance.
+% For a proper complex Gaussian vector, Corr(|z_j|^2,|z_k|^2)=|C_jk|^2.
+% Simulation power is P_qj=B_qj*|z_qj+sqrt(mu*T_qj/B_qj)*exp(i phi)|^2.
+% This is a coherent-amplitude statistical benchmark, NOT a physical
+% stochastic axion halo signal. Original vendor scores use sum log skewpdf
+% [log(P)-log(B+mu*T)] exactly, without covariance correction.
+% Nominal local null q0 threshold chi2_1(90pct)=2.706 (boundary mixture);
+% nominal profile 95pct two-sided threshold chi2_1(95pct)=3.841.
+% Neither threshold is asserted to be calibrated for the actual APE bins.
+% Frequency-domain shared Gaussian amplitudes are NOT a substitute for native C.
