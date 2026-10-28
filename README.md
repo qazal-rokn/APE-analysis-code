@@ -563,3 +563,45 @@ The accepted frozen-segment calibration remains available separately through
 `tools/calibrate_frozen_segment_to_hdf5.py`. Its reference sources, provenances,
 and the real-data gate are not changed by this integration. Read the contract in
 `docs/ANALYSIS_CONTRACT_UNIFIED_PIPELINE_ORCHESTRATION_20261028.md`.
+
+## Opt-in multi-bin APE template diagnostic (2026-10-28)
+
+The approved `physical_multibin_template` statistical mode connects the existing
+provisional QWP multi-bin power response and supplied native-C window-power
+matrix to the **unchanged original vendor log likelihood**, after authentic
+synthetic X/Y native C-LPSD and original background fitting. It is **not** an
+APE detection or upper-limit mode. It does not run a multi-bin vendor MLE.
+
+Use a run-specific synthetic configuration with:
+- `statistical_mode: "physical_multibin_template"`
+- `multibin_template_file`: existing absolute `.npz` path
+- `halo_source_description` and `window_response_source_description`: nonblank provenance
+- `candidate_start_indices`: exact, increasing C-grid window starts
+- `coupling_grid_gev_inv`: strictly increasing nonnegative values, starting at zero
+- `peak_shape_file: null`, `n_effective_trials: null`
+- explicit `physics` and `c_settings` as in the existing synthetic config.
+
+The template NPZ contains exactly four numeric arrays:
+`frequency_support_hz` (K),
+`normalized_halo_weights` (K, unit sum),
+`observed_frequency_windows_hz` (C,N),
+`window_power_response` (C,2,N,K).
+Candidate window frequencies must equal the actual native-C grid. For each
+candidate window, the template is
+`T[q,j]=g_ref**2/2 * alpha[q] * sum(h[k]*R_QWP(f[k])**2*W[q,j,k])`
+in rad². Columns of W are **not** normalized; no additional empirical K
+correction is applied. In the manifest, `multibin_diagnostic_report`
+holds per-window template powers and likelihood values for the specified
+coupling grid. The candidate CSV is header-only by design.
+
+**Scientific gate:** The external halo spectrum, X/Y fractions, QWP physical
+coupling response, inter-bin dependence and statistical coverage are not yet
+validated. Do not feed an illustrative matrix or halo into physical inference.
+Never use this mode on real data.
+
+Run the focused non-C tests:
+```bash
+cd /work/ape-pipeline
+PYTHONPATH=src:. /work/ape-statistics-venv/bin/python -B -m unittest tests.test_ape_multibin_diagnostic
+```
+See `docs/ANALYSIS_CONTRACT_MULTIBIN_APE_20261028.md`.
