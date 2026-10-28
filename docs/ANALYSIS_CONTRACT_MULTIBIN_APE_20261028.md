@@ -1,4 +1,4 @@
-# Analysis Contract: Opt-in multi-bin APE forward template (DRAFT, 2026-10-28)
+# Analysis Contract: Opt-in multi-bin APE forward template (APPROVED, 2026-10-28)
 
 ## REQUESTED
 Implement a physically justified multi-bin APE axion signal-power model in the existing unified synthetic-only C-LPSD -> original vendor likelihood pipeline, avoiding repetitive C normalization tests or extra ad hoc calibration factors.
@@ -13,7 +13,7 @@ Implement a physically justified multi-bin APE axion signal-power model in the e
 ## UNDERSTANDING
 The model must represent expected **native C-estimator bin powers** after window response, not physical input halo weights alone; **no extra K correction** on observed PS, coupling, or native C. The 2026 Göttel-Raymond paper concerns scalar DM in LIGO, not the APE pseudoscalar optical response; its halo and covariance assumptions must not be transplanted as established APE physics.
 
-## PLANNED IMPLEMENTATION (requires researcher approval)
+## APPROVED IMPLEMENTATION
 1. Create an explicit, opt-in `physical_multibin_template` synthetic-only mode. Reuse existing original compiled C X/Y, unchanged original vendor background and unchanged original `stats.log_likelihood`.
 2. Load **externally supplied and documented** intrinsic-field frequency support and nonnegative normalized weights (halo source and convention mandatory), and a precomputed C-window power matrix `W[q,j,k]` with unambiguous frequency grids/units; refuse mismatches. No default astrophysical halo, guessed per-bin signal powers, or silent re-normalization/interpolation.
 3. Generate PS `T[q,j]` only with the current `qwp_signal_power_template` and separately declared QWP inputs, `g_ref`, and X/Y fractions. Record full source paths, hashes, effective settings, and template PS; use `prepare_ape_likelihood`/original vendor log likelihood. Preserve the existing single-bin and finite-grid modes without behavior change.
@@ -49,4 +49,4 @@ Static contract/shape/unit tests and synthetic parity with archived Q=1e6 C and 
 NOT AUTHORIZED; synthetic-only input checks remain mandatory.
 
 ## STATUS
-**DRAFT, awaiting explicit researcher approval. Scientific code implementation not started.**
+**RESEARCHER APPROVED IN CHAT on 2026-10-28.** Implemented opt-in `physical_multibin_template` mode on `development/likelihood`. New guarded loader `src/ape_c_lpsd/analysis/multibin_diagnostic.py` consumes 4 explicit NPZ arrays (halo support/weights, exact native C candidate-window frequencies, and 2-channel window-power tensor). The unchanged `prepare_ape_likelihood`, `qwp_signal_power_template`, and vendor log-likelihood calculate a diagnostic grid of log-likelihood values. The manifest contains `multibin_diagnostic_report`, with empty candidate CSV by design. All other modes, original C/vendor and calibrated/raw data unchanged. Seven focused regression tests added; execution on operator Linux environment pending. **No physical halo validation, multi-bin MLE, candidate significance, or UL claim.**
