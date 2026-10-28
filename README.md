@@ -728,3 +728,38 @@ with explicit `--existing-config`, `--output-dir`, `--coupling-gev-inv`,
 `PYTHONPATH=src:.:/source python -B -m unittest discover -s tests -p test_paper_axion_like_injection.py`.
 
 See `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
+
+## Paper-halo axion-like time-series recovery campaign (2026-10-28)
+
+Opt-in isolated runner: `tools/run_paper_axion_like_injection.py`. This is
+distinct from the earlier arbitrary seven-bin correlation experiment.
+It samples random Galactic velocities from a truncated 3D Maxwellian,
+applies a fixed laboratory boost and the rest-mass kinetic frequency
+shift, and synthesizes 1024 *off-grid* random-phase continuous coherent
+modes around 5000 Hz. Their true physical frequency distribution is
+preserved; no arbitrary 7-bin injection. The current QWP amplitude
+function converts modes into synthetic X/Y radians with an explicitly
+**surrogate 90-degree X/Y phase**, plus matched noise-only control.
+Stationary white electronic noise is a BENCHMARK input, not measured APE.
+
+Fixed preset: original QWP physics in the given operator-reviewed config;
+Q_C=1e6 (1301 native bins), fs=20 kHz, duration=201 s, Kaiser PSLL=238.13,
+20% overlap, native compiled C (Method-3 FFT and Method-2 direct PS), original
+vendor background/likelihood. The expected multi-bin kernel is computed
+for each actual output bin using native C's analytic Kaiser response.
+Frequency support is selected from predicted PS, not a handpicked 7-bin
+shape. A finite injection/null pair cannot establish 95% coverage.
+
+First run the three tiny no-C preflight unit tests:
+```bash
+cd /work/ape-pipeline
+PYTHONPATH=src:.:/source /work/ape-statistics-venv/bin/python -B \
+ -m unittest discover -s tests -p 'test_paper_axion_like_injection.py' -v
+```
+
+A separate human-reviewed execution selects explicit coupling/noise and
+`--run-c`. The runner writes new immutable per-run HDF5 and C output files
+and `axion_like_recovery_report.json`. Do not treat the default
+`stochastic_gaussian_vendor_shape` provenance marker as physically
+validated SHM/APE X/Y statistics; this source has the additional true
+halo parameter and phase-surrogate metadata. No real-data operation.
