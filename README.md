@@ -665,3 +665,37 @@ PYTHONPATH=src:.:/source python -m tools.run_paper_axion_like_injection \\
 Focused mathematical tests: `PYTHONPATH=src:.:/source python -B -m unittest discover -s tests -p test_paper_axion_like_injection.py -v`.
 
 Remaining scientific limits: fixed lab velocity without Earth orbit, finite mode/realization sampling, QWP transfer phase approximation and single-realization recovery without confidence-interval coverage. The generated HDF5 uses `stochastic_gaussian_vendor_shape` only to meet the existing synthetic-only provenance gate; the detailed attributes contain the actual random-phase mode prescription and explicitly unvalidated X/Y phase. See `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
+
+## Paper-halo axion-like time-domain injection (2026-10-28)
+
+Opt-in `tools/run_paper_axion_like_injection.py` performs ONE 5 kHz
+injection and a PAIRED noise-only control using 201 s × 20 kHz synthetic
+rho_x/rho_y time series. The Galactocentric 3D Gaussian is escape-cut
+then shifted to a fixed laboratory velocity, with frequencies computed
+from nonrelativistic kinetic energy; a coherent random-phase sum over
+1024 sampled velocity modes implements one finite field realization.
+The APE QWP response is reused as an amplitude envelope, while the X/Y
+phase projection is **an explicit surrogate**, not calibrated APE physics.
+The mode velocities, field seed, kernel configuration and hashes are
+recorded. The *original* C-LPSD is run on the sampled time series;
+the original vendor fits background and evaluates its own log likelihood.
+Signal-support bins are selected automatically from the predicted
+windowed halo template, not manually set to seven. The output is only
+a **coherent benchmark recovery diagnostic**, not axion sensitivity,
+global significance or physical 95% coverage.
+
+One quick syntax/import and generator check (no C run):
+
+```bash
+PYTHONPATH=src:. python -B -m unittest discover -s tests -p 'test_paper_axion_like_injection.py' -v
+```
+
+Then run in the original Linux Docker container with the approved
+source configuration (run `-m tools.run_paper_axion_like_injection`,
+not a direct tools/*.py invocation, to avoid shadowed package imports).
+Use a NEW `/work/ape-paper-axion-*` output path and explicitly set
+`--coupling-gev-inv`, `--noise-rms-rad`, and `--run-c`.
+Choose physically reviewed amplitudes; do not interpret `g` as calibrated.
+Refer to `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
+
+No previous experimental input, vendor, C or physical calibration is modified.
