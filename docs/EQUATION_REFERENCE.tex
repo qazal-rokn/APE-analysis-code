@@ -303,3 +303,23 @@ This is not an observed upper limit or a physical APE coverage assertion.
 % log-skewnormal residual likelihood and QWP-Kaiser multi-bin forward template.
 % This single-realization run cannot assert signal stochastic coverage,
 % physical mass/coupling recovery, global significance or real-data limits.
+
+% Paper-faithful halo injection benchmark approved 2026-10-28.
+% Göttel & Raymond (Scientific Reports 16 15364 2026), Eq.(5):
+% v_gal sampled from isotropic 3D Gaussian with one-axis standard deviation
+% sigma_v=theta0*sqrt(3/2), truncated at |v_gal|<v_esc.
+% Fixed lab benchmark v_obs=v_gal-v_lab, v_lab=(theta0,0,0).
+% f_obs = f_rest*(1+|v_obs|^2/(2c^2)).
+% One stochastic finite-duration field is a coherent mode superposition
+% E(t)=g/sqrt(K)*sum_k R_QWP(f_k)*exp(2*pi*i*(f_k-f_rest)*t + i*phi_k).
+% X,Y constructed as 90-degree Hilbert-type surrogate quadratures with
+% explicit fractions alpha_X,alpha_Y and paired white readout noise.
+% This surrogate is NOT an experimentally validated APE optical phase model.
+% Native C measured PS: P_qj, expected benchmark power template:
+% T_qj=(g_ref^2/2)*alpha_q*sum_k (1/K)*R_QWP(f_k)^2*W_jk.
+% W_jk native Kaiser coherent-tone power response, NOT a probability
+% density, so DO NOT normalize its row or column sums.
+% Original vendor log likelihood evaluated on selected modeled frequency
+% support; source-respecting stochastic field may cause substantial
+% realization-to-realization signal-strength fluctuations.
+% No physical significance, coupling limits, or coverage from one realization.
