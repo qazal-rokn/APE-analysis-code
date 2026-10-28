@@ -179,7 +179,7 @@ def window_power_kernel(output_frequency_hz, mode_frequency_hz, *, q, psll):
     numer = np.empty_like(u)
     inside = z >= 0
     arg = np.pi*np.sqrt(np.maximum(z,0))
-    numer[inside] = np.sinh(arg[inside])/np.where(arg[inside]==0,1,arg[inside])
+    numer[inside] = np.where(arg[inside] == 0, 1., np.sinh(arg[inside])/np.where(arg[inside] == 0, 1., arg[inside]))
     arg = np.pi*np.sqrt(np.maximum(-z,0))
     numer[~inside] = np.sin(arg[~inside])/np.where(arg[~inside]==0,1,arg[~inside])
     denom = np.sinh(np.pi*alpha)/(np.pi*alpha)
