@@ -1,4 +1,4 @@
-# Analysis Contract: Paper-faithful axion-like injection and end-to-end recovery (DRAFT, 2026-10-28)
+# Analysis Contract: Paper-faithful axion-like injection and end-to-end recovery (APPROVED, 2026-10-28)
 
 ## REQUESTED
 Replace arbitrary seven-bin/correlated-Gaussian demonstrations with one **physical axion-like signal injection** at a prespecified rest frequency, consistent with the 2026 Göttel and Raymond halo / coherence and signal-model assumptions where scientifically transferable to APE. Process real synthetic time-series samples through **unchanged native C-LPSD** and original vendor background, likelihood and inference. Keep it efficient and auditable.
@@ -18,7 +18,7 @@ Replace arbitrary seven-bin/correlated-Gaussian demonstrations with one **physic
 - Original vendor likelihood uses expected signal power plus skew-normal log-power residuals, and its signed optimizer / asymptotic statistics remain unchanged. Statistical adequacy and coverage are outcomes, not guaranteed.
 - Real experiment X/Y phase mapping and QWP complex transfer are unvalidated; test must explicitly label any surrogate X/Y phase model.
 
-## PROPOSED SINGLE BOUNDED CAMPAIGN (requires researcher approval)
+## APPROVED SINGLE BOUNDED CAMPAIGN
 1. Freeze one physical configuration: f_rest=5000 Hz, Q_C=1e6, lab-halo velocity dispersion, escape cutoff, laboratory motion and annual phase explicitly sourced and serialized; physical mass-frequency conversion and full predicted line distribution; choose deterministic seed. Avoid assumed 7-bin shape.
 2. Use a source-derived, truncated, laboratory-boosted Maxwell–Boltzmann velocity field with a *shared* physical realization, consistent phase evolution, and finite coherence. Generate analytic / heterodyned time series plus known broad-band Gaussian noise; write synthetic-only rho_x/rho_y in radians using the existing QWP amplitude envelope, with phase treatment explicitly provisional rather than falsely claiming complete APE physics.
 3. Design sampling/recording to satisfy both Nyquist and actual native C window requirements. Avoid claiming that a single 201 s, 0.004975 Hz Fourier grid adequately resolves an entire stochastic halo. Budget length, sample count and memory explicitly. If full resolved-halo synthesis requires >1 coherence window, choose the smallest physically meaningful recording and stop if benchmark budget is insufficient. No enormous blind scan.
@@ -38,4 +38,4 @@ Whether and how the 2026 scalar paper's phase/coherence construction transfers t
 Not authorized.
 
 ## STATUS
-DRAFT. Researcher requested correct experiment; scientific implementation not started pending approval of assumptions and contract. No C or other pre-existing file modified.
+Researcher instructed to proceed in chat (2026-10-28). Implementation added as isolated `tools/run_paper_axion_like_injection.py` and three focused mathematical smoke tests in `tests/test_paper_axion_like_injection.py`. Full native-C run in the user's Linux environment is not yet executed. The benchmark fixes Galactic 3D Gaussian component sigma=229 km/s × sqrt(3/2), escape speed=528 km/s, fixed laboratory speed=229 km/s, f_rest=5000 Hz and Q_C=1e6. Earth orbital modulation is deliberately not included; these benchmark numbers are not claimed to be measured APE conditions. One randomly phased velocity-mode realization with finite 201s duration and independent Gaussian readout-noise pair is built using the existing provisional QWP amplitude envelope and a 90-degree surrogate X/Y mapping. The amplitude and optical phase convention still need physical calibration. The full native pipeline and vendor statistic are called unchanged; candidate significance/UL from this benchmark is prohibited. No physical uncertainty coverage claim from a single injection. No original vendor/C/real data modified.
