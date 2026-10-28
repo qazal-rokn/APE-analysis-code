@@ -23,6 +23,7 @@ from ape_c_lpsd.analysis.ape_candidate_scan import scan_candidate_windows
 from ape_c_lpsd.analysis.vendor_shape_ape import prepare_vendor_shape_ape_likelihood
 from ape_c_lpsd.analysis.ape_vendor_candidate_report import fit_and_report_single_bin_candidates
 from tools.run_ape_synthetic_candidates import join_ps_sidecars
+from ape_c_lpsd.analysis.multibin_diagnostic import evaluate_multibin_windows
 
 
 def sha256(path):
@@ -175,6 +176,12 @@ def execute(config):
     if mode=="vendor_mle_single_bin":
         scan=run_vendor_mle_stage(frequency, observed, fits, starts, config, vendor)
         candidates=scan["selection"]
+    elif mode=="physical_multibin_template":
+        scan=evaluate_multibin_windows(
+            frequency_hz=frequency, observed_ps=observed,
+            fitted_backgrounds=fits, candidate_start_indices=starts,
+            config=config, external_vendor_root=vendor)
+        candidates={"candidates": [], "status": "multibin_diagnostic_no_candidate_inference"}
     elif mode=="finite_grid":
         scan=scan_candidate_windows(
             candidate_frequencies_hz=frequency[starts],
@@ -203,7 +210,8 @@ def execute(config):
                   scientific_warning="Unverified native window response, X/Y correlations, injection recovery and coverage",
                   statistical_mode=mode,
                   candidates=candidates,
-                  vendor_mle_report=(scan if mode=="vendor_mle_single_bin" else None))
+                  vendor_mle_report=(scan if mode=="vendor_mle_single_bin" else None),
+                  multibin_diagnostic_report=(scan if mode=="physical_multibin_template" else None))
     with (output/"manifest.json").open("x") as handle:
         json.dump(manifest,handle,indent=2)
     with (output/"candidates.csv").open("x",newline="") as handle:
