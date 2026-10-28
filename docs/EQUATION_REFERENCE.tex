@@ -237,3 +237,17 @@ This is not an observed upper limit or a physical APE coverage assertion.
 % validated APE 95-percent coverage. No ad hoc C PS response correction.
 % The actual C window kernel, multi-bin axion shape, global trials and physical
 % X/Y normalization are separate unresolved validation gates.
+
+% Approved 2026-10-28 multi-bin diagnostic (synthetic-only).
+% The original compiled native C provides P_{qj} [rad^2].
+% External caller must provide intrinsic normalized h_k and native C power
+% response W_{qjk}, with exact candidate-window frequencies; W column sums
+% are NOT normalized, since overlapping C bins are not exclusive power bins.
+% Reuses existing provisional QWP forward model without modifying physics:
+% T_{qj} = (g_ref^2 / 2) alpha_q sum_k h_k R_QWP(f_k)^2 W_{qjk}.
+% Exact vendor factorization: peak_norm_{qj}*peak_shape_j=T_{qj}.
+% Vendor log likelihood is unchanged, with mu=(g/g_ref)^2.
+% This multi-bin mode evaluates user-provided g grid ONLY. No signed MLE,
+% candidate significance, or expected UL; interbin covariance and physical
+% APE halo/QWP and X/Y response remain scientifically unvalidated.
+% No extra K or normalization factor was added.
