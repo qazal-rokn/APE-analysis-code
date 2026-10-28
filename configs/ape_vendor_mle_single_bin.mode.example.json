@@ -1,0 +1,12 @@
+{
+  "_note": "Add these keys to a run-specific copy of configs/ape_pipeline_synthetic.example.json. Retain all pre-existing PS/native-C and synthetic provenance guards. These are illustrative optimizer settings; review before execution.",
+  "statistical_mode": "vendor_mle_single_bin",
+  "vendor_optimizer": {
+    "min_log10mu": -8,
+    "max_log10mu": 3,
+    "n_seed_lkl": 32
+  },
+  "alpha_cl": 0.95,
+  "peak_shape_file": null,
+  "n_effective_trials": null
+}
