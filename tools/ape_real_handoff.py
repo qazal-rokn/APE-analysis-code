@@ -61,11 +61,18 @@ def main():
     if binary["sha256"]!=EXPECTED_BINARY_SHA or not binary["executable"]:
         raise RuntimeError("Frozen validated C executable missing or changed; refusing copy")
     target=check_target(a.container)
+    available=exec_python(a.container, """import os,json
+s=os.statvfs("/work")
+print(json.dumps(dict(available_bytes=s.f_bavail*s.f_frsize)))
+""")
+    if h5.stat().st_size + 512*1024*1024 > available["available_bytes"]:
+        raise RuntimeError("Insufficient free Docker storage for a safe copy")
     report=dict(status="handoff_plan_only",source_hdf5=str(h5),
                 source_sha256_recorded=src["hdf5_sha256_recorded"],
                 docker_container=a.container,docker_target=TARGET,
                 validated_native_binary_sha256=binary["sha256"],
-                destination_preexists=target["exists"],native_c_executed=False,
+                destination_preexists=target["exists"],
+                docker_free_bytes=available["available_bytes"],native_c_executed=False,
                 vendor_modified=False,physical_limits_authorized=False)
     if not a.copy_hdf5:
         print(json.dumps(report,indent=2))
