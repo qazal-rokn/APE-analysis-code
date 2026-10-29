@@ -1,0 +1,43 @@
+name: APE Mac runner read-only preflight
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ape-mac-readonly-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: [self-hosted, macOS, ARM64, ape-simulation]
+    timeout-minutes: 10
+    steps:
+      - name: Verify runner, Docker and frozen synthetic provenance (read only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: ${RUNNER_NAME}"
+          echo "Architecture: $(uname -m)"
+          test "$(uname -m)" = "arm64"
+          command -v docker
+          docker info --format 'Docker server: {{.ServerVersion}}'
+          test "$(docker inspect -f '{{.State.Running}}' lpsd-linux)" = "true"
+          ROOT=/work/ape-five-signal-stage03-20261029-v1
+          INPUT="$ROOT/input/calibrated_rho_xy_float64_native_C_input.h5"
+          EXE=/work/ape-ps-method2-20261021/build/lpsd-exec
+          OUT="$ROOT/sparse-five-xy-tC03EiSC"
+          EXPECTED_INPUT=919b38ef7e14e78b82066ce87688f0315fc87840cec6622954e7c964a854a6d7
+          EXPECTED_EXE=cb0b1df10c9863145ba8b35df60e075eac3dc08965f3ad832857a7d4fec5eec9
+          ACTUAL_INPUT="$(docker exec lpsd-linux sha256sum "$INPUT" | awk '{print $1}')"
+          ACTUAL_EXE="$(docker exec lpsd-linux sha256sum "$EXE" | awk '{print $1}')"
+          test "$ACTUAL_INPUT" = "$EXPECTED_INPUT"
+          test "$ACTUAL_EXE" = "$EXPECTED_EXE"
+          docker exec lpsd-linux test -s "$OUT/stage03_sparse_validation.json"
+          echo "STAGE03_NATIVE_INPUT_AND_EXECUTABLE_VERIFIED"
+          ARCHIVE="$HOME/Desktop/APE_Research/APE_40MIN_FIVE_SIGNAL_SIMULATION"
+          test -d "$ARCHIVE/03_Native_C_LPSD"
+          test -d "$ARCHIVE/04_Background_Fitting"
+          echo "STAGE_ARCHIVE_DIRECTORIES_VERIFIED"
+          echo "APE_MAC_RUNNER_READONLY_PREFLIGHT_PASS"
