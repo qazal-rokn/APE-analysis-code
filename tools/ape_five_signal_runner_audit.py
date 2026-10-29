@@ -190,7 +190,7 @@ def check_stage4() -> tuple[dict, list[Path]]:
         for f in FREQS:
             if (ch, f) == ("rho_x", 3200):
                 continue
-            results.append(check_fit(batch / f"{ch}_{f}Hz", ch, f))
+            results.append(check_fit(batch / f"{'X' if ch == 'rho_x' else 'Y'}_{f}Hz", ch, f))
     require({(r["channel"], r["frequency_hz"]) for r in results}
             == {(ch, f) for ch in ("rho_x", "rho_y") for f in FREQS},
             "Missing Stage 4 channel/frequency")
