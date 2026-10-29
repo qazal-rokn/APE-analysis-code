@@ -24,6 +24,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: main
 
       - name: Verify runner and frozen original synthetic input and C executable
         shell: bash
