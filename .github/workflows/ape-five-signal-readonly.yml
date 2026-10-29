@@ -1,4 +1,4 @@
-name: APE five-signal simulation: audited stage outputs
+name: "APE five-signal simulation: audited stage outputs"
 
 on:
   workflow_dispatch:
