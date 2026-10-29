@@ -40,6 +40,12 @@ Supply the *existing frozen files* from the benchmark, plus a fresh non-overwrit
 
 The `synthetic-full` mode takes the **existing synthetic-only JSON** used by `tools.run_ape_pipeline` and delegates without altering its inputs/approval checks.
 
+## Real-data provisional full-chain entry point (29 October 2026)
+
+`python -B -m tools.ape_one_run real-provisional-full --config configs/ape_real_one_command.example.json` now calls the actual existing frozen calibration and direct-C PS flow, original external vendor background fit/MLE/expected-limit functions, APE local candidate grouping and provisional final CSV/plot in a single invocation. Use `--dry-run` for a guarded preflight. The run configuration supplies frozen scientific settings and initial environment/input paths, **not manually connected intermediate files**. Outputs are non-overwriting; previously computed PS can be reused only with matching calibration SHA-256 provenance.
+
+This is deliberately **not** a general raw arbitrary DXD analysis, a validated physical multibin axion-halo inference, observed exclusion limit, or global candidate significance. The current external vendor MLE bridge supports only the existing one-bin approximation; replacing that with a physical axion multibin response is outside orchestration scope and is not silently done. See `docs/APE_REAL_ONE_COMMAND_INTEGRATION_20261029.md`.
+
 ## Important outstanding integration
 
 This is **one CLI launcher** for the already implemented workflows, **not yet a single uninterrupted real DXD -> native C -> measured-data candidates -> physical 95% limits pipeline**. A real-data-only C backend with a different non-synthetic authorization contract must be developed and validated; do **not** reuse `run_local(synthetic_approved=True)` to bypass this. Do not run the frozen synthetic 12-bin power model on experimental input and label the resulting coupling limits physical. Final QWP X/Y complex response, native C correlated residual coverage/global trials, and negative-MLE observed limits remain unresolved. The 256-trial coverage diagnostic applies only to its tested synthetic statistical model and is not an automatic per-run stage.
