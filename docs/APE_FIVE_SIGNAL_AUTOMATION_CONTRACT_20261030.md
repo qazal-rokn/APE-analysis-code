@@ -6,7 +6,7 @@ Approved by researcher in chat on 2026-10-30 for automatic stage-by-stage execut
 Run the *same* 40-minute, 20 kHz, five-injection synthetic dataset through the established APE pipeline on the self-hosted Mac runner, save each stage's inputs, numerical results, settings, logs, hashes, plots and replot scripts, and return a clear status per stage. Minimize manual Terminal interaction.
 
 ## CURRENT BEHAVIOR
-Stage 3 ten X/Y sparse native-C PS products passed. Stage 4 ten vendor spline/skew-normal PS background fits passed. Stage 1 and 2 original-adapter execution was not independently proved by the supplied logs; the generated arithmetic calibration is not an original APE-calibration validation. Stage 5/6/7 have not executed on this fixture. Local 3200-Hz vendor fit chi2=1.6836004673503357 and all other local fits passed; see immutable local results for the numerical detail.
+Stage 3 ten X/Y sparse native-C PS products passed. Stage 4 ten vendor spline/skew-normal PS background fits passed. Stage 1/2 reports are now available from the archived original-fixture source and record successful original-APE synthetic HDF5-adapter executions: calibration of 48,000,000 samples per channel with maximum 0 rad reference difference and cleaning of 48,000 blocks with zero rejected. These isolated results do not validate native DXD input, disturbed-data cleaning, or actual Stage-1-output-to-Stage-3 file transfer. Stage 5/6/7 have not executed on this fixture. Local 3200-Hz vendor fit chi2=1.6836004673503357 and all other local fits passed; see immutable local results for the numerical detail.
 
 ## UNDERSTANDING
 Automation is not authorization to improvise the APE optical response, the signal power normalization, the native C PS units, frequency-bin likelihood dependence or observed upper-limit convention. Preserve the five-signal original fixture (fixed signal phases; deterministic expected power; randomized detector noise), X/Y separation and scientific provenance.
@@ -22,7 +22,7 @@ Native C column 3 PS [rad²] for calibrated ellipticity; native PSD column 2 [ra
 ## RISKS AND CONTROLS
 - Repo is private; self-hosted runner label is ape-simulation; use workflow_dispatch or tightly limited workflow push for read-only preflight, not pull_request execution.
 - No untrusted workflow checkout or native executable substitution.
-- Reports must not label Stage 1/2 as passed without authentic logs; no claiming Stage 5+ as done before computation.
+- Reports may label Stage 1/2 as *isolated synthetic HDF5-adapter passed* only when original result reports, all retained samples, full source checksums and the relevant saved outputs are verified; no claiming Stage 5+ as done before computation.
 - No modification to the original C binary/source, vendor scientific algorithms, frozen APE calibration/cleaning, raw data or previous results.
 - Refuse missing/mismatched HDF5 or binary hashes.
 - Original data and large FFT caches must not be uploaded to GitHub. Staged synthetic plots/spectra can be captured in private-run artifacts only.
@@ -47,3 +47,13 @@ No real APE physical inference authorized. All automated products must remain la
 
 ## STATUS
 Phase A read-only GitHub automation authorized; Phase B scientific Stage 5–7 gated by documented, validated model choices. This contract does not certify the entire future analysis chain.
+
+## STANDING USER SCOPE RULE: only this five-signal fixture
+
+The researcher explicitly authorized proceeding independently for this **specific** existing five-signal synthetic fixture without repeated operational approvals. No unrelated GitHub files, branches, workflows, experiments, real data or scientific code are in scope. Only the simulation-specific workflow, automation/reporting wrappers, contract and saved synthetic results may be changed. Never replace, patch or rebuild the native C executable or original external vendor/APE scientific methods.
+
+When any stage fails or an interpretation requires an undocumented assumption, examine the **original Göttel–Raymond 2026 paper** (DOI 10.1038/s41598-025-33428-2), the archived external vendor implementation and existing source manifests. Use the unchanged original method and preserve relevant source/code hashes. Do not invent alternative filters, reference couplings, signal templates, units, likelihood degrees of freedom or statistical coverage.
+
+The approval covers operation and exact reuse of independently validated methods, **not** fabrication of missing scientific definitions. If a required parameter or scientifically valid method is unavailable in original sources or frozen contract, write a traceable `BLOCKED_NEEDS_SCIENTIFIC_DEFINITION` status and preserve all prior artifacts. Do not declare stages 5–7 passed by relabelling outputs. The user does not need to approve routine file archiving, reproducibility checks, job retries of unchanged methods or status reporting for this fixture.
+
+A ChatGPT session cannot control the Mac or run continuously by itself; execution beyond the active chat requires the connected GitHub self-hosted runner to be online and an actual GitHub Actions workflow to invoke the declared unchanged stage executables. Do not claim that stages have been run without checking the returned Actions job logs and resulting artifacts.
