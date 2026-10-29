@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/ape-five-signal-readonly.yml'
+      - 'tools/ape_five_signal_runner_audit.py'
+      - 'docs/APE_FIVE_SIGNAL_AUTOMATION_CONTRACT_20261030.md'
 
 permissions:
   contents: read
