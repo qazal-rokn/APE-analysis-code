@@ -120,6 +120,7 @@ def main():
     p = modes.add_parser("real-provisional-full", help="One-command real-data PS to vendor expected-limit diagnostic")
     p.add_argument("--config", type=Path, required=True)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--resume", action="store_true")
 
     h = modes.add_parser("real-docker-handoff", help="Verified Mac-to-Docker HDF5 transport")
     h.add_argument("--stage-result", type=Path, required=True)
@@ -152,7 +153,7 @@ def main():
         }, indent=2))
     elif args.mode == "real-provisional-full":
         from tools.ape_real_one_command import run as run_real_provisional
-        report = run_real_provisional(args.config, dry_run=args.dry_run)
+        report = run_real_provisional(args.config, dry_run=args.dry_run, resume=args.resume)
         print(json.dumps(report, indent=2))
     elif args.mode == "real-docker-handoff":
         from tools.ape_real_handoff import main as handoff_main
