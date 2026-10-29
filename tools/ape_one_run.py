@@ -9,7 +9,8 @@ Modes:
 * frozen-17freq: frozen deterministic 17-frequency native-C PS postprocessor.
 * real-calibration: automatic real DXD -> calibrated HDF5 (Mac ARM64).
 * real-calibration-reuse: verify completed 0.0284 HDF5 without reprocessing.
-There is intentionally no purported production real-data limits mode yet.
+* real-provisional-full: real frozen calibration -> native C PS -> vendor expected limits.
+There is intentionally no claim of validated physical observed APE limits.
 """
 from __future__ import annotations
 
@@ -116,6 +117,10 @@ def main():
     v.add_argument("--stage-result", type=Path, required=True)
     v.add_argument("--verify-full-hash", action="store_true")
 
+    p = modes.add_parser("real-provisional-full", help="One-command real-data PS to vendor expected-limit diagnostic")
+    p.add_argument("--config", type=Path, required=True)
+    p.add_argument("--dry-run", action="store_true")
+
     h = modes.add_parser("real-docker-handoff", help="Verified Mac-to-Docker HDF5 transport")
     h.add_argument("--stage-result", type=Path, required=True)
     h.add_argument("--container", default="lpsd-linux")
@@ -145,6 +150,10 @@ def main():
             "physical_limits_authorized": False,
             "summary": str(args.output_dir / "summary.json"),
         }, indent=2))
+    elif args.mode == "real-provisional-full":
+        from tools.ape_real_one_command import run as run_real_provisional
+        report = run_real_provisional(args.config, dry_run=args.dry_run)
+        print(json.dumps(report, indent=2))
     elif args.mode == "real-docker-handoff":
         from tools.ape_real_handoff import main as handoff_main
         saved_argv = sys.argv
