@@ -99,7 +99,7 @@ def export_selected(source: Path, target: Path, manifest: list) -> None:
         require(sha(dst) == sha(p), f"Copy mismatch: {p}")
         manifest.append({
             "stage_relative_source": str(p.relative_to(ARCHIVE)),
-            "artifact_relative_path": str(dst.relative_to(target.parents[1] if target.parent.name in {"03_Native_C_LPSD", "04_Background_Fitting"} else target.parent)),
+            "artifact_relative_path": str(dst.relative_to(target.parents[1] if target.parent.name in {"01_Calibration", "02_Cleaning", "03_Native_C_LPSD", "04_Background_Fitting"} else target.parent)),
             "sha256": sha(dst),
             "bytes": dst.stat().st_size,
         })
