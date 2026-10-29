@@ -189,7 +189,7 @@ def run_native_c(config, calibrated, output_dir, *, dry_run):
     return spectra
 
 
-def run(config_path, *, dry_run=False):
+def run(config_path, *, dry_run=False, resume=False):
     path = Path(config_path).expanduser().resolve(strict=True)
     cfg = json.loads(path.read_text())
     if cfg.get("scientific_scope") != "provisional_real_data_only":
@@ -202,7 +202,26 @@ def run(config_path, *, dry_run=False):
         raise ValueError("Explicit already-existing APE signal model parameters required")
     out = Path(cfg["output_dir"]).expanduser().resolve()
     if out.exists():
-        raise FileExistsError("Use a unique new output directory")
+        if not resume or dry_run:
+            raise FileExistsError("Existing output; use --resume for checked downstream restart")
+        snapshot = out / "orchestration_inputs.json"
+        if not snapshot.is_file():
+            raise RuntimeError("No native-PS checkpoint; refusing unsafe C restart")
+        saved = json.loads(snapshot.read_text())
+        if saved["config_sha256"] != sha256(path):
+            raise RuntimeError("Resume configuration hash mismatch")
+        verified = choose_calibration(cfg["source"], dry_run=False)
+        if saved["calibrated_hdf5_sha256"] != verified["hdf5_sha256_recorded"]:
+            raise RuntimeError("Resume calibrated input hash mismatch")
+        for channel, file in saved["downstream"]["native_ps"].items():
+            if sha256(file) != saved["native_ps_sha256"][channel]:
+                raise RuntimeError("Resume native C PS hash mismatch")
+        downstream = out / "downstream"
+        if (downstream / "summary.json").is_file():
+            return {"status": "ALREADY_COMPLETED_REPORT_REUSED", "output": str(downstream)}
+        from tools.ape_real_full_pipeline import run as downstream_run
+        result = downstream_run(saved["downstream"], snapshot)
+        return {"status": "PROVISIONAL_DOWNSTREAM_RESUMED", "downstream": result}
     calibrated = choose_calibration(cfg["source"], dry_run=dry_run)
     if dry_run and calibrated.get("status") == "calibration_planned":
         return {"status": "DRY_RUN_CALIBRATION_REQUIRED", "calibration": calibrated}
@@ -233,7 +252,9 @@ def run(config_path, *, dry_run=False):
     with snapshot.open("x") as h:
         json.dump({"config_sha256": sha256(path),
                    "calibrated_hdf5_sha256": calibrated["hdf5_sha256_recorded"],
-                   "physical_limits_validated": False, "downstream": downstream}, h, indent=2)
+                   "physical_limits_validated": False, "downstream": downstream,
+                   "native_ps_sha256": {ch: sha256(f) for ch, f in paths.items()}},
+                  h, indent=2)
     from tools.ape_real_full_pipeline import run as downstream_run
     downstream_result = downstream_run(downstream, snapshot)
     return {"status": "PROVISIONAL_REAL_DATA_RUN_COMPLETE",
@@ -245,8 +266,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--resume", action="store_true")
     a = parser.parse_args()
-    print(json.dumps(run(a.config, dry_run=a.dry_run), indent=2))
+    print(json.dumps(run(a.config, dry_run=a.dry_run, resume=a.resume), indent=2))
 
 
 if __name__ == "__main__":
