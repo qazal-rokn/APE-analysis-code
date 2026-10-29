@@ -30,6 +30,8 @@ FIG_NAMES = (
 )
 EXPORT_SUFFIXES = {".csv", ".json", ".npz", ".png", ".pdf", ".py", ".md", ".log", ".cfg", ".lpsd"}
 ALLOWED_NATIVE = {"native_1600bins.lpsd", "stage03_reference.native.lpsd"}
+ALLOWED_NATIVE.update(f"{ch}_{f}.lpsd" for ch in ("rho_x", "rho_y") for f in FREQS)
+MAX_ARTIFACT_FILE_BYTES = 32 * 1024 * 1024
 
 
 def sha(p: Path) -> str:
@@ -83,6 +85,9 @@ def export_selected(source: Path, target: Path, manifest: list) -> None:
         if p.suffix not in EXPORT_SUFFIXES:
             continue
         if p.suffix == ".lpsd" and p.name not in ALLOWED_NATIVE:
+            continue
+        if p.stat().st_size > MAX_ARTIFACT_FILE_BYTES:
+            print(f"SKIP_LARGE_FILE_RETAINED_ON_MAC: {p} ({p.stat().st_size} bytes)")
             continue
         if p.name == "file_inventory.csv":
             # Preserve the original inventory as one of the independently saved reports.
@@ -209,6 +214,11 @@ def main():
     stage4, fit_sources = check_stage4()
     dest.mkdir(parents=True, exist_ok=False)
     manifest = []
+    for name in ("00_Simulation_Input", "01_Calibration", "02_Cleaning"):
+        src = ARCHIVE / name
+        if src.is_dir():
+            export_selected(src, dest / name, manifest)
+    export_selected(STAGE3 / "native_c", dest / "03_Native_C_LPSD" / "native_c", manifest)
     export_selected(STAGE3 / "plot_data", dest / "03_Native_C_LPSD" / "plot_data", manifest)
     script = STAGE3 / "plot_stage03.py"
     target = dest / "03_Native_C_LPSD" / "plot_stage03.py"
