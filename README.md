@@ -864,3 +864,22 @@ pseudoscalar QWP calibration. Full axion astrophysical coherence, fixed
 lab motion, real-data X/Y covariance, and calibrated physical recovery
 remain pending. See the scientific contract
 `docs/ANALYSIS_CONTRACT_PAPER_FAITHFUL_AXION_INJECTION_20261028.md`.
+
+## Explicit spectral units / amplitude boundary (29 October 2026)
+
+See `docs/APE_SPECTRAL_UNITS_20261029.md` and
+`src/ape_c_lpsd/analysis/spectral_units.py`. The original native direct-PS
+C pipeline remains rad² with NO new f/Q_a multiplier. Historical PSD-only
+(rad²/Hz) conversion is a separate, opt-in operation requiring independently
+verified effective bandwidth in Hz. No archive conversion has yet been run.
+
+For a combined amplitude diagnostic use sqrt(PS_X+PS_Y) [rad]; the external
+vendor background/likelihood retains separate power observations [rad²]. The
+expected-limit adapter now makes the equivalent fitted-power-to-amplitude step
+explicit before returning g [GeV^-1]; its numerical normalization remains
+exactly g_ref*sqrt(mu_UL). Never replace fitted signal power with raw total
+observed PS. Real-data downstream inference still requires approval.
+
+Run: `PYTHONPATH=src python -m unittest tests.test_spectral_units`.
+These tests are committed but were not executed inside the user's VIPER or
+Docker environment in this chat.
