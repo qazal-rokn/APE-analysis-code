@@ -1,0 +1,72 @@
+{
+  "scientific_scope": "provisional_real_data_only",
+  "signal_model": "existing_vendor_single_bin",
+  "source": {
+    "stage_result": "/Users/user/Desktop/APE_Research/APE_Automatic_Runs/ape-run-20261028-c0284-arm64-v2/stage_result.json"
+  },
+  "native_ps": {
+    "mode": "run_docker",
+    "container": "lpsd-linux",
+    "binary": "/work/ape-ps-method2-20261021/build/lpsd-exec",
+    "binary_sha256": "cb0b1df10c9863145ba8b35df60e075eac3dc08965f3ad832857a7d4fec5eec9",
+    "docker_hdf5_root": "/work/ape-real-calibrated-input",
+    "docker_work_dir": "/work/ape-real-automatic-runs",
+    "c_settings": {
+      "fs_hz": 20000,
+      "duration_s": 15435,
+      "f_min_hz": 65,
+      "f_max_hz": 10000,
+      "grid_bins": 5035956,
+      "overlap_percent": 20,
+      "window": -2,
+      "psll_db": 238.13,
+      "regression": 0,
+      "input_scale": 1,
+      "epsilon": 10,
+      "memory_power": 26,
+      "kernel_threshold": 1e-15,
+      "a_option": 2,
+      "batch_count": 16
+    }
+  },
+  "external_vendor_root": "/Users/user/Downloads/Scalar-Dark-Matter-LPSD-1.0.0",
+  "output_dir": "/Users/user/Desktop/APE_Research/APE_Automatic_Runs/ape-real-unified-NONOVERWRITING-20261029",
+  "background": {
+    "segment_bins": 2000,
+    "buffer_bins": 50,
+    "vendor_fit_settings": {
+      "kernel_size": 30,
+      "plot_mean": false,
+      "verbose": false,
+      "plot_path": null,
+      "plot_prefix": "ape_background",
+      "k_min": 4,
+      "k_pruning": 1,
+      "k_plateau": 3,
+      "buffer": 50,
+      "bin_scaling": 0.15,
+      "cfd_fraction": 0.1,
+      "disable_tqdm": true
+    }
+  },
+  "physics": {
+    "reference_coupling_gev_inv": 1e-10,
+    "quadrature_power_fraction": [
+      0.5,
+      0.5
+    ],
+    "finesse_s": 1500,
+    "tau_s": 2.5e-9,
+    "tau1_s": 1e-8,
+    "rho_dm_gev4": 3.1e-42,
+    "unit_conversion": 1.519e+24
+  },
+  "optimizer": {
+    "min_log10mu": -10,
+    "max_log10mu": 10,
+    "n_seed_lkl": 100,
+    "alpha_cl": 0.95
+  },
+  "local_sigma_threshold": 3,
+  "scan_stride": 1
+}
