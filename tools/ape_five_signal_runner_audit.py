@@ -99,7 +99,7 @@ def export_selected(source: Path, target: Path, manifest: list) -> None:
         require(sha(dst) == sha(p), f"Copy mismatch: {p}")
         manifest.append({
             "stage_relative_source": str(p.relative_to(ARCHIVE)),
-            "artifact_relative_path": str(dst.relative_to(target.parents[1])),
+            "artifact_relative_path": str(dst.relative_to(next(p for p in target.parents if p.name == "ape_five_signal_report"))),
             "sha256": sha(dst),
             "bytes": dst.stat().st_size,
         })
@@ -226,7 +226,7 @@ def main():
     manifest.append({"stage_relative_source": str(script.relative_to(ARCHIVE)),
                      "artifact_relative_path": str(target.relative_to(dest)),
                      "sha256": sha(target), "bytes": target.stat().st_size})
-    export_selected(fit_sources[0], dest / "04_Background_Fitting" / "pilot_3200_X", manifest)
+    export_selected(STAGE4 / "pilot_3200Hz_X_4f653750c3", dest / "04_Background_Fitting" / "pilot_3200_X", manifest)
     export_selected(fit_sources[1], dest / "04_Background_Fitting" / "remaining_nine", manifest)
     report = {
         "experiment": "synthetic_40min_five_signal_20261029",
