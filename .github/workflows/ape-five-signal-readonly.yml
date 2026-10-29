@@ -1,0 +1,74 @@
+name: APE five-signal simulation: audited stage outputs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ape-five-signal-readonly.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ape-five-signal-readonly-stage-audit
+  cancel-in-progress: false
+
+jobs:
+  stage-audit:
+    name: Read-only Docker and Stage 0-7 status audit
+    runs-on: [self-hosted, macOS, ARM64, ape-simulation]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout versioned audit code only
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify runner and frozen original synthetic input and C executable
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: $RUNNER_NAME"
+          echo "Mac architecture: $(uname -m)"
+          test "$(uname -m)" = "arm64"
+          export PATH="/opt/homebrew/bin:/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:$PATH"
+          command -v docker
+          docker info --format 'Docker version: {{.ServerVersion}}'
+          test "$(docker inspect --format '{{.State.Running}}' lpsd-linux)" = "true"
+          ROOT=/work/ape-five-signal-stage03-20261029-v1
+          SOURCE="$ROOT/input/calibrated_rho_xy_float64_native_C_input.h5"
+          EXE=/work/ape-ps-method2-20261021/build/lpsd-exec
+          INPUT_HASH=919b38ef7e14e78b82066ce87688f0315fc87840cec6622954e7c964a854a6d7
+          BINARY_HASH=cb0b1df10c9863145ba8b35df60e075eac3dc08965f3ad832857a7d4fec5eec9
+          test "$(docker exec lpsd-linux sha256sum "$SOURCE" | awk '{print $1}')" = "$INPUT_HASH"
+          test "$(docker exec lpsd-linux sha256sum "$EXE" | awk '{print $1}')" = "$BINARY_HASH"
+          docker exec lpsd-linux test -s "$ROOT/sparse-five-xy-tC03EiSC/stage03_sparse_validation.json"
+          echo "APE_MAC_DOCKER_SYNTHETIC_PREFLIGHT_PASS"
+
+      - name: Validate Stage 3 and Stage 4, package plot-ready results
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/usr/local/bin:/Applications/Docker.app/Contents/Resources/bin:$PATH"
+          python3 tools/ape_five_signal_runner_audit.py --destination "$RUNNER_TEMP/ape_five_signal_report"
+          echo "APE_FIVE_SIGNAL_SAVED_RESULTS_AUDIT_PASS"
+
+      - name: Record stage-by-stage status in GitHub job summary
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/ape_five_signal_report/README.md"; then
+            cat "$RUNNER_TEMP/ape_five_signal_report/README.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "APE synthetic five-signal audit did not complete; inspect previous job logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload verified plot-ready outputs and scientific status
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: APE-five-signal-stage03-stage04-plot-ready
+          path: ${{ runner.temp }}/ape_five_signal_report/
+          if-no-files-found: error
+          retention-days: 30
