@@ -273,6 +273,9 @@ def main():
         src = ARCHIVE / name
         if src.is_dir():
             export_selected(src, dest / name, manifest)
+    fixture = ARCHIVE / "00_Simulation_Input" / "generated_fixture_original"
+    export_selected(fixture / "stage01_original_calibration_01", dest / "01_Calibration" / "original_validated_run", manifest)
+    export_selected(fixture / "stage02_original_cleaning_01", dest / "02_Cleaning" / "original_validated_run", manifest)
     export_selected(STAGE3 / "native_c", dest / "03_Native_C_LPSD" / "native_c", manifest)
     export_selected(STAGE3 / "plot_data", dest / "03_Native_C_LPSD" / "plot_data", manifest)
     script = STAGE3 / "plot_stage03.py"
