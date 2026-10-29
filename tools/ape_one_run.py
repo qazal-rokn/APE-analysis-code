@@ -116,6 +116,11 @@ def main():
     v.add_argument("--stage-result", type=Path, required=True)
     v.add_argument("--verify-full-hash", action="store_true")
 
+    h = modes.add_parser("real-docker-handoff", help="Verified Mac-to-Docker HDF5 transport")
+    h.add_argument("--stage-result", type=Path, required=True)
+    h.add_argument("--container", default="lpsd-linux")
+    h.add_argument("--copy-hdf5", action="store_true")
+
     args = parser.parse_args()
     if args.mode == "synthetic-full":
         from tools.run_ape_pipeline import execute
@@ -140,6 +145,16 @@ def main():
             "physical_limits_authorized": False,
             "summary": str(args.output_dir / "summary.json"),
         }, indent=2))
+    elif args.mode == "real-docker-handoff":
+        from tools.ape_real_handoff import main as handoff_main
+        saved_argv = sys.argv
+        try:
+            sys.argv = [saved_argv[0], "--stage-result", str(args.stage_result), "--container", args.container]
+            if args.copy_hdf5:
+                sys.argv.append("--copy-hdf5")
+            handoff_main()
+        finally:
+            sys.argv = saved_argv
     elif args.mode == "real-calibration":
         from tools.run_ape_automatic import execute
         execute(args.run_config.expanduser().resolve(strict=True),
