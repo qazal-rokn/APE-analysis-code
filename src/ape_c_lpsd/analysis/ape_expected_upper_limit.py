@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 import numpy as np
+from ape_c_lpsd.analysis.spectral_units import coupling_from_fitted_power
 
 VENDOR_UL_SHA256 = "8f800fed30a0327763c87f983df7f507b44a879aa6ccfa8f57558146e1d26745"
 
@@ -55,7 +56,7 @@ def expected_upper_limit_ape(*, sigma_mu, g_ref_gev_inv, external_root,
         "sqrt_mu_ul": float(limit[0]),
         "sigma_sqrt_mu": float(uncertainty[0]),
         "g_ref_gev_inv": g_ref,
-        "g_ul_gev_inv": float(g_ref * limit[0]),
+        "g_ul_gev_inv": float(coupling_from_fitted_power(limit[0]**2, g_ref_gev_inv=g_ref)),
         "sigma_g_ul_gev_inv": float(g_ref * uncertainty[0]),
         "vendor_upper_limit_sha256": checksum,
         "method": "unchanged_vendor_get_upper_limits_approx",
