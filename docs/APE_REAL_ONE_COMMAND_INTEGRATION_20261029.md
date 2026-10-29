@@ -12,6 +12,8 @@ python -B -m tools.ape_real_one_command --config configs/ape_real_one_command.ex
 python -B -m tools.ape_real_one_command --config configs/ape_real_one_command.example.json
 ```
 
+If the native C stage has finished and only downstream inference stopped, rerun the **same configuration** with `--resume`; it verifies input and PS hashes and does not recalculate native C. An interrupted native-C run without a completed checkpoint requires a separate fresh run directory, to avoid reusing unverified partial C output.
+
 Use an existing frozen calibration `stage_result.json` or configure `source.run_config` to execute the existing macOS DXD frozen calibration first. The latter is a frozen-segment method, not general arbitrary voltage-series cleaning. No manual intermediate file copying, manual C output joining, or likelihood execution is required.
 
 Default sample config runs the **original verified C executable** in the existing `lpsd-linux` Docker container. It verifies the frozen HDF5 stage result and binary SHA, copies calibrated HDF5 only when missing and verifies its hash, uses existing C argument assembly to run FFT and Constant-Q batches for both independent quadratures, streams the C *native PS* column (rad²), and then calls the existing vendor fitter, vendor MLE, local-candidate code, and asymptotic expected 95% upper-limit function.
@@ -27,6 +29,6 @@ Important limitations:
 - The sample path settings refer to the previously recorded Mac/Docker environment and may not exist in a new environment.
 - The `--dry-run` checks the selected source/binary but does **not** perform a full statistical numerical regression.
 - An unrestricted five-million-frequency MLE scan can take extensive CPU time. No speed promise or validated duration.
-- If a stage fails or an output already exists, it preserves the failure state rather than overwriting prior results. At present the wrapper requires a new unique output directory for a restart; it does not claim resumability of the full C chain.
+- If a stage fails or an output already exists, it preserves the failure state rather than overwriting prior results. The downstream chain supports checksum-verified restart using `--resume`. Native C does not resume partially completed batches automatically.
 
 This adds the missing software orchestration to the extent supported by *existing* methods. It does NOT complete the unfinished physical multibin or observed-limit methodology and must not be called a validated physical exclusion pipeline.
