@@ -105,6 +105,60 @@ def export_selected(source: Path, target: Path, manifest: list) -> None:
         })
 
 
+def check_stages_1_2() -> tuple[dict, dict]:
+    """Confirm existing ORIGINAL APE calibration/cleaning adapter runs.
+
+    Reports are issued by the unchanged scientific routines; this audits their
+    provenance and saved outcomes without rerunning those routines.
+    """
+    fixture = ARCHIVE / "00_Simulation_Input" / "generated_fixture_original"
+    raw = fixture / "data" / "simulated_raw_voltages_40min.h5"
+    reference = fixture / "data" / "calibrated_rho_xy_float64_native_C_input.h5"
+    s1 = fixture / "stage01_original_calibration_01"
+    s2 = fixture / "stage02_original_cleaning_01"
+    r1, r2 = load_json(s1 / "report.json"), load_json(s2 / "report.json")
+    require(r1.get("stage") == "original_ape_calibrate_chunk"
+            and r1.get("PASS") is True
+            and r1.get("n_samples") == 48_000_000
+            and r1.get("valid_samples") == 48_000_000
+            and r1.get("fs_hz") == 20_000.0,
+            "Original APE Stage 1 execution report failed")
+    errors = r1.get("maximum_absolute_reference_difference_rad", {})
+    require(set(errors) == {"rho_x", "rho_y"}
+            and all(float(v) < 1e-11 for v in errors.values()),
+            "Stage 1 reference agreement not established")
+    require(r2.get("stage") == "original_ape_cleaning"
+            and r2.get("status") == "PASS"
+            and r2.get("samples") == 48_000_000
+            and r2.get("frequency_hz") == 20_000.0
+            and r2.get("block_count") == 48_000
+            and r2.get("good_samples") == 48_000_000
+            and r2.get("rejected_block_count") == 0
+            and r2.get("final_accepted_fraction") == 1.0
+            and r2.get("mask_has_no_gaps") is True,
+            "Original APE Stage 2 execution report failed")
+    raw_expected = r1["input_sha256"]
+    require(raw_expected == r2["source_sha256"]
+            and raw_expected == "72bf380428e653356442e79ad513acabac5d4b045b1d763dfa78bf07c7418f16",
+            "Stage 1/2 original raw HDF5 identity mismatch")
+    require(sha(raw) == raw_expected, "Original synthetic voltage file SHA256 mismatch")
+    require(sha(reference) == r1["reference_sha256"]
+            and r1["reference_sha256"] == "62e559481a812d333fa0054ebe6d0b6ad825709179317fd53545f524ef106834",
+            "Stage 1/reference native input source identity mismatch")
+    require((s1 / "stage01_original_calibrated.h5").is_file(),
+            "Stage 1 original calibrated HDF5 not present on Mac")
+    require((s2 / "stage02_cleaning_blocks.npz").is_file(),
+            "Stage 2 cleaning mask/diagnostics NPZ missing")
+    return (
+        {"status": "original_ape_adapter_run_pass",
+         "samples": 48_000_000, "maximum_absolute_reference_difference_rad": errors,
+         "caveat": "Synthetic HDF5 bridge; original DXD reader not tested; Stage 3 consumes equal generator reference rather than Stage 1 output file directly"},
+        {"status": "original_ape_adapter_run_pass",
+         "good_samples": 48_000_000, "rejected_blocks": 0,
+         "caveat": "Stable synthetic quality monitor; does not validate rejection of actual disturbances"}
+    )
+
+
 def check_stage3() -> dict:
     source = STAGE3 / "native_c"
     report = load_json(source / "stage03_sparse_validation.json")
@@ -210,6 +264,7 @@ def main():
     dest = opts.destination.expanduser().resolve()
     require(not dest.exists(), f"Refusing overwrite of {dest}")
     require(ARCHIVE.is_dir(), f"Missing Mac archive: {ARCHIVE}")
+    stage1, stage2 = check_stages_1_2()
     stage3 = check_stage3()
     stage4, fit_sources = check_stage4()
     dest.mkdir(parents=True, exist_ok=False)
@@ -236,8 +291,8 @@ def main():
         "c_binary_sha256": BINARY_SHA,
         "stage_status": {
             "00_Simulation_Input": {"status": "fixture_exists_not_rerun"},
-            "01_Calibration": {"status": "original_APE_execution_unverified"},
-            "02_Cleaning": {"status": "original_APE_execution_unverified"},
+            "01_Calibration": stage1,
+            "02_Cleaning": stage2,
             "03_Native_C_LPSD": stage3,
             "04_Background_Fitting": stage4,
             "05_Likelihood": {"status": "not_executed", "blocker": "validated signal power and one-bin versus multi-bin scientific contract"},
@@ -256,14 +311,15 @@ def main():
              "## Stage status", ""]
     for stage, value in report["stage_status"].items():
         lines.append(f"- **{stage}:** {value['status']}")
-    lines += ["", "Stages 3–4 are checked against saved numerical artifacts and fits.",
-              "Stages 1–2 are not yet independently confirmed as passing the original APE adapters.",
+    lines += ["", "Stages 1–2 original synthetic HDF5-adapter executions are verified against preserved reports and source-file checksums.",
+              "Stages 3–4 are checked against saved numerical artifacts and fits.",
               "Stages 5–7 are not executed; global significance and physical limits are not validated.",
               "The Mac holds the original HDF5 and FFT caches. GitHub artifact contains plot-ready synthetic data.",
               "Plotting scripts are saved beside the scientific CSV and NPZ products.", ""]
     (dest / "README.md").write_text("\n".join(lines))
     print(json.dumps({"status": "APE_FIVE_SIGNAL_READONLY_STAGE_AUDIT_PASS",
                       "destination": str(dest), "exported_files": len(manifest),
+                      "stage01": "isolated_pass", "stage02": "isolated_pass",
                       "stage03": "pass", "stage04": "pass",
                       "stage05_through_07": "not_executed"}, indent=2))
 
