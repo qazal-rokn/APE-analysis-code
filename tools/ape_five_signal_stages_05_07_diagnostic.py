@@ -137,7 +137,6 @@ def import_fixed_input(ch,f):
     return fs[idx],ps[idx],bg[idx],model,sha(folder/"vendor_fit_report.json"),sha(native),idx
 
 def run():
-    _,_,vendor_mle,candidate, hashes = (None,None,*load_vendor()[:1],None,None) if False else (None,None,None,None,None)
     mle,ul,stats,select,hashes=load_vendor()
     verify_sources()
     run_id="synthetic_single_bin_relative_excess_"+uuid.uuid4().hex[:10]
@@ -145,6 +144,7 @@ def run():
     if root.exists():
         raise FileExistsError(root)
     (root/"inputs").mkdir(parents=True,exist_ok=False)
+    (root/"likelihood_profiles").mkdir(parents=True,exist_ok=False)
     stage6=ROOT/"06_Candidates"/run_id
     stage7=ROOT/"07_Upper_Limits"/run_id
     for path in (stage6,stage7):
@@ -194,6 +194,21 @@ def run():
                                error=f"{type(exc).__name__}: {exc}")
                 subset.append(row)
                 rows.append(row)
+            # Save the unmodified vendor log-likelihood evaluated on a fixed relative-power grid.
+            # This is a diagnostic grid, not a replacement optimizer or axion response.
+            mu_grid=np.linspace(-0.9,5.0,100,dtype=float)
+            curves=np.empty((len(freq),len(mu_grid)),dtype=float)
+            for i,(obs,background) in enumerate(zip(ps,bkg)):
+                for j,mu0 in enumerate(mu_grid):
+                    curves[i,j]=stats.log_likelihood(
+                        float(mu0),np.log(np.array([[obs]])),
+                        np.log(np.array([[background]])),
+                        np.array([[background]]),np.ones(1),pars.reshape(1,3))
+            if not np.all(np.isfinite(curves)):
+                raise RuntimeError("Original vendor diagnostic likelihood profile nonfinite")
+            np.savez_compressed(root/"likelihood_profiles"/f"{ch}_{f}.npz",
+                                mu_relative_power=mu_grid,frequency_hz=freq,
+                                original_vendor_log_likelihood=curves)
             csv_write(root/"inputs"/f"{ch}_{f}_saved_native_and_vendor.csv",[
                 {"frequency_hz":float(nu),"observed_native_ps_rad2":float(obs),
                  "saved_vendor_background_ps_rad2":float(bg0),
