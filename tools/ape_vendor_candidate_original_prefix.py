@@ -1,57 +1,50 @@
-"""Execute unchanged original vendor candidate-selection statements.
+"""APE candidate selection, copied verbatim from original get_candidates.main.
 
-Only omit original get_candidates.main's LIGO-specific DataManager,
-two-IFO consistency checks, interactive debugger, and plots.
-Fail closed if the vendor source structure changes.
+Only excluded: LIGO DataManager, H1/L1 consistency tests, and plots.
+Original vendor GPLv3-or-later, copyright 2026 Alexandre Goettel.
 """
 from __future__ import annotations
-import ast
-import inspect
 from pathlib import Path
 import numpy as np
+from scipy.stats import norm
+from scalar_dark_matter_lpsd.LPSDIO import MaxLKLIO
+from scalar_dark_matter_lpsd.lvk.get_candidates import cluster
 
 
 def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
-    from scalar_dark_matter_lpsd.lvk import get_candidates as vendor
-    tree = ast.parse(inspect.getsource(vendor.main))
-    fn = tree.body[0]
-    if not isinstance(fn, ast.FunctionDef) or fn.name != "main":
-        raise RuntimeError("Unexpected original vendor candidate entry point")
-    boundary = next((i for i, stmt in enumerate(fn.body)
-                     if isinstance(stmt, ast.Assign)
-                     and any(isinstance(t, ast.Name) and t.id == "global_mngr"
-                             for t in stmt.targets)), None)
-    if boundary is None:
-        raise RuntimeError("Original candidate DataManager boundary not found")
-    prefix = fn.body[:boundary]
-    original = ast.unparse(ast.Module(body=prefix, type_ignores=[]))
-    for required in ("MaxLKLIO(", "norm.ppf(", "cluster(", "candidate_idx"):
-        if required not in original:
-            raise RuntimeError("Original candidate-selection source changed")
-    # Preserve the ORIGINAL vendor candidate_freqs and candidate_lambdas
-    # assignments from immediately after the LIGO-only DataManager setup.
-    suffix = fn.body[boundary:]
-    assignments = []
-    for stmt in suffix:
-        if isinstance(stmt, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id in
-            {"candidate_freqs", "candidate_lambdas"} for t in stmt.targets
-        ):
-            assignments.append(stmt)
-    if len(assignments) != 2:
-        raise RuntimeError("Original candidate-frequency assignments changed")
-    fn.body = prefix + assignments + [ast.Return(
-        value=ast.Name(id="candidate_freqs", ctx=ast.Load()))]
-    namespace = vars(vendor).copy()
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])),
-                 inspect.getsourcefile(vendor.main), "exec"), namespace, namespace)
-    # Original signature, no guessed keyword/argument substitutions.
-    frequencies = namespace["main"](
-        str(Path(max_lkl_path).resolve(strict=True)), None, None, None,
-        "", None, None, sigma_limit=float(sigma_limit))
+    # Original get_candidates.main: exact statistical statements.
+    lkl = MaxLKLIO(infile=str(max_lkl_path))
+    q0 = np.zeros_like(lkl.zero_lkl)
+    mask = lkl.mu > 0
+    q0[mask] = -2 * (lkl.zero_lkl[mask] - lkl.max_lkl[mask])
+
+    # Cleaning
+    mask = np.isnan(q0) | (q0 >= 500)
+    q0 = q0[~mask]
+
+    # Find 5sigma candidates (correct for look-elsewhere-effect)
+    significance_sigma = -norm.ppf(norm.cdf(-sigma_limit) / len(q0))
+    print(f"Corrected significance: {significance_sigma:.2f} sigma")
+    candidate_mask = q0 > significance_sigma ** 2
+    print(f"Number of candidates: {sum(candidate_mask)}")
+
+    # Clustering
+    candidate_idx, candidate_lambda = cluster(candidate_mask, lkl.mu[~mask])
+    print(f"Number of clusters: {len(candidate_idx)}")
+
+    # Original candidate frequency and amplitude assignments, relocated
+    # immediately after clustering because intervening code is H1/L1-only.
+    candidate_freqs = lkl.frequency[~mask][candidate_idx]
+    candidate_lambdas = candidate_lambda
+
+    # Original vendor CSV formatting; original writes after LIGO vetoes.
     dest = Path(output_csv)
     if dest.exists():
         raise FileExistsError(dest)
-    # Original get_candidates.main output serialization, unchanged.\n    with open(dest, "w") as f:\n        f.write("\\n".join([f"{x:.6e}" for x in frequencies]))
-    return {"candidate_csv": str(dest), "n_clusters": int(len(frequencies)),
-            "source": "unchanged original get_candidates.main statistical prefix"}
+    candidate_frequencies = []
+    for freq in candidate_freqs:
+        candidate_frequencies.append(freq)
+    with open(dest, "w") as f:
+        f.write("\n".join([f"{x:.6e}" for x in candidate_frequencies]))
+    return {"candidate_csv": str(dest), "n_clusters": int(len(candidate_idx)),
+            "stage": "original vendor pre-H1/L1-veto candidate selection"}
