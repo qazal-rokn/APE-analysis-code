@@ -37,10 +37,10 @@ def main(config):
         # Vendor original stages are called from a single adapter entry point.
         from ape_vendor_original_stages_experimental import run
         stage_status = run(config)
-        from ape_vendor_single_channel_candidates import select_candidates
+        from ape_vendor_candidate_original_prefix import run_vendor_candidate_prefix
         status = json.loads(Path(stage_status).read_text())
         result_dir = Path(cfg["output_directory"]).resolve()
-        candidates = select_candidates(
+        candidates = run_vendor_candidate_prefix(
             result_dir / "vendor_mle_result.npy",
             result_dir / "ape_candidates.csv",
             sigma_limit=float(cfg.get("sigma_limit", 5)))
