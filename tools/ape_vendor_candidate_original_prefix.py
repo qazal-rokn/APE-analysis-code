@@ -28,23 +28,30 @@ def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
     for required in ("MaxLKLIO(", "norm.ppf(", "cluster(", "candidate_idx"):
         if required not in original:
             raise RuntimeError("Original candidate-selection source changed")
-    # Only the return is new; all statistical statements are original AST.
-    fn.body = prefix + [ast.Return(value=ast.Tuple(elts=[
-        ast.Name(id="lkl", ctx=ast.Load()),
-        ast.Name(id="mask", ctx=ast.Load()),
-        ast.Name(id="candidate_idx", ctx=ast.Load())
-    ], ctx=ast.Load()))]
+    # Preserve the ORIGINAL vendor candidate_freqs and candidate_lambdas
+    # assignments from immediately after the LIGO-only DataManager setup.
+    suffix = fn.body[boundary:]
+    assignments = []
+    for stmt in suffix:
+        if isinstance(stmt, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id in
+            {"candidate_freqs", "candidate_lambdas"} for t in stmt.targets
+        ):
+            assignments.append(stmt)
+    if len(assignments) != 2:
+        raise RuntimeError("Original candidate-frequency assignments changed")
+    fn.body = prefix + assignments + [ast.Return(
+        value=ast.Name(id="candidate_freqs", ctx=ast.Load()))]
     namespace = vars(vendor).copy()
     exec(compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])),
                  inspect.getsourcefile(vendor.main), "exec"), namespace, namespace)
     # Original signature, no guessed keyword/argument substitutions.
-    lkl, mask, indices = namespace["main"](
+    frequencies = namespace["main"](
         str(Path(max_lkl_path).resolve(strict=True)), None, None, None,
         "", None, None, sigma_limit=float(sigma_limit))
-    frequencies = lkl.frequency[~mask][indices]
     dest = Path(output_csv)
     if dest.exists():
         raise FileExistsError(dest)
-    np.savetxt(dest, frequencies, fmt="%.6e")
-    return {"candidate_csv": str(dest), "n_clusters": int(len(indices)),
+    # Original get_candidates.main output serialization, unchanged.\n    with open(dest, "w") as f:\n        f.write("\\n".join([f"{x:.6e}" for x in frequencies]))
+    return {"candidate_csv": str(dest), "n_clusters": int(len(frequencies)),
             "source": "unchanged original get_candidates.main statistical prefix"}
