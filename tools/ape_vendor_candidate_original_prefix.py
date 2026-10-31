@@ -21,7 +21,7 @@ def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
     if not len(q0):
         raise ValueError("No valid vendor q0 bins")
     significance_sigma = -norm.ppf(norm.cdf(-sigma_limit) / len(q0))
-    candidate_mask = q0 >= significance_sigma**2
+    candidate_mask = q0 > significance_sigma ** 2
     candidate_idx, candidate_lambda = cluster(candidate_mask, lkl.mu[~mask])
     frequencies = lkl.frequency[~mask][candidate_idx]
     np.savetxt(output_csv, frequencies, fmt="%.12e")
