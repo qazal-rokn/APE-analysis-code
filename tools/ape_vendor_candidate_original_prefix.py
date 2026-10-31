@@ -1,29 +1,50 @@
-"""APE single-channel candidate selection: call original vendor cluster directly.
+"""Execute unchanged original vendor candidate-selection statements.
 
-Only the detector-independent statements from original get_candidates.main
-are required. Its complete main cannot be called: it unconditionally creates
-a two-detector DataManager and runs H1/L1 consistency and plots.
+Only omit original get_candidates.main's LIGO-specific DataManager,
+two-IFO consistency checks, interactive debugger, and plots.
+Fail closed if the vendor source structure changes.
 """
 from __future__ import annotations
+import ast
+import inspect
+from pathlib import Path
 import numpy as np
-from scipy.stats import norm
-from scalar_dark_matter_lpsd.LPSDIO import MaxLKLIO
-from scalar_dark_matter_lpsd.lvk.get_candidates import cluster
 
 
 def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
-    lkl = MaxLKLIO(infile=str(max_lkl_path))
-    q0 = np.zeros_like(lkl.zero_lkl)
-    mask = lkl.mu > 0
-    q0[mask] = -2 * (lkl.zero_lkl[mask] - lkl.max_lkl[mask])
-    mask = np.isnan(q0) | (q0 >= 500)
-    q0 = q0[~mask]
-    if not len(q0):
-        raise ValueError("No valid vendor q0 bins")
-    significance_sigma = -norm.ppf(norm.cdf(-sigma_limit) / len(q0))
-    candidate_mask = q0 > significance_sigma ** 2
-    candidate_idx, candidate_lambda = cluster(candidate_mask, lkl.mu[~mask])
-    frequencies = lkl.frequency[~mask][candidate_idx]
-    np.savetxt(output_csv, frequencies, fmt="%.12e")
-    return {"candidate_csv": str(output_csv), "n_clusters": int(len(frequencies)),
-            "original_vendor_function": "get_candidates.cluster"}
+    from scalar_dark_matter_lpsd.lvk import get_candidates as vendor
+    tree = ast.parse(inspect.getsource(vendor.main))
+    fn = tree.body[0]
+    if not isinstance(fn, ast.FunctionDef) or fn.name != "main":
+        raise RuntimeError("Unexpected original vendor candidate entry point")
+    boundary = next((i for i, stmt in enumerate(fn.body)
+                     if isinstance(stmt, ast.Assign)
+                     and any(isinstance(t, ast.Name) and t.id == "global_mngr"
+                             for t in stmt.targets)), None)
+    if boundary is None:
+        raise RuntimeError("Original candidate DataManager boundary not found")
+    prefix = fn.body[:boundary]
+    original = ast.unparse(ast.Module(body=prefix, type_ignores=[]))
+    for required in ("MaxLKLIO(", "norm.ppf(", "cluster(", "candidate_idx"):
+        if required not in original:
+            raise RuntimeError("Original candidate-selection source changed")
+    # Only the return is new; all statistical statements are original AST.
+    fn.body = prefix + [ast.Return(value=ast.Tuple(elts=[
+        ast.Name(id="lkl", ctx=ast.Load()),
+        ast.Name(id="mask", ctx=ast.Load()),
+        ast.Name(id="candidate_idx", ctx=ast.Load())
+    ], ctx=ast.Load()))]
+    namespace = vars(vendor).copy()
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])),
+                 inspect.getsourcefile(vendor.main), "exec"), namespace, namespace)
+    # Original signature, no guessed keyword/argument substitutions.
+    lkl, mask, indices = namespace["main"](
+        str(Path(max_lkl_path).resolve(strict=True)), None, None, None,
+        "", None, None, sigma_limit=float(sigma_limit))
+    frequencies = lkl.frequency[~mask][indices]
+    dest = Path(output_csv)
+    if dest.exists():
+        raise FileExistsError(dest)
+    np.savetxt(dest, frequencies, fmt="%.6e")
+    return {"candidate_csv": str(dest), "n_clusters": int(len(indices)),
+            "source": "unchanged original get_candidates.main statistical prefix"}
