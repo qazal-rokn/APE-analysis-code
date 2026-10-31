@@ -21,6 +21,7 @@ def run(config):
         fit_background, max_lkl_executable, calc_upper_limit, stats)
     from ape_vendor_original_stages_experimental import ape_beta
     from ape_vendor_candidate_original_prefix import run_vendor_candidate_prefix
+    from ape_vendor_upper_limit_original_prefix import run_vendor_upper_limit_prefix
 
     cfg = json.loads(Path(config).resolve(strict=True).read_text())
     out = Path(cfg["output_directory"]).resolve()
@@ -119,24 +120,22 @@ def run(config):
     candidate_result = run_vendor_candidate_prefix(
         mle_file, out / "candidates.csv", float(cfg.get("sigma_limit", 5)))
 
-    # Vendor numerical UL unchanged; vendor main has LIGO-only plots and files.
-    expected = np.full((len(rows), 3), np.nan)
-    expected[:, 0] = rows[:, 0]
-    for i, sigma in enumerate(rows[:, 4]):
-        if np.isfinite(sigma) and sigma > 0:
-            upper, err = calc_upper_limit.get_upper_limits_approx(
-                float(sigma), alpha_CL=float(cfg.get("alpha_CL", .95)))
-            expected[i, 1] = float(np.asarray(upper).item())
-            expected[i, 2] = float(np.asarray(err).item())
-    np.savetxt(out / "vendor_expected_limits.csv", expected, delimiter=",",
-               header="frequency_hz,upper_sqrt_mu,sigma_upper_sqrt_mu", comments="")
+    # Reuse the original vendor's entire 1000-point UL lookup-table
+    # algorithm and interpolation. Omit only LIGO-specific plotting,
+    # comparisons, and strain-equivalent conversion.
+    expected = run_vendor_upper_limit_prefix(
+        mle_file, out / "vendor_expected_limits.tsv",
+        pruning=int(cfg.get("ul_pruning", 1)),
+        alpha_CL=float(cfg.get("alpha_CL", .95)),
+        tol=float(cfg.get("ul_tol", 1e-10)),
+        kernel_size=int(cfg.get("ul_kernel_size", 100000)))
     status = {"status": "EXPERIMENTAL_UNTESTED", "scope": "post-C-LPSD",
               "original_vendor_stages": [
                   "LPSDOutput", "LPSDData.save_to_hdf5",
                   "fit_background_in_file", "LPSDDataGroup", "LPSDJSONIO",
                   "make_args", "process_q0", "MaxLKLIO",
                   "get_candidates.main original-statistics prefix",
-                  "get_upper_limits_approx"],
+                  "original upper-limit lookup-table and interpolation"],
               "necessary_ape_changes": ["X+Y power sum", "APE beta response",
                   "exclude LIGO-only consistency and plots"],
               "observations": len(seen), "likelihood_rows": len(rows),
