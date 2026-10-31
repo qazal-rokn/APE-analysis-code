@@ -1,86 +1,29 @@
-"""Run the EXACT detector-independent prefix of original vendor get_candidates.main.
+"""APE single-channel candidate selection: call original vendor cluster directly.
 
-No copied q0, trial-factor, cleaning or clustering implementation. Parse the
-installed vendor source AST and execute its original statements unchanged up
-to the 'Gather LPSD data' boundary. Refuse changed vendor source layouts.
-
-The omitted suffix is the H1/L1-only data manager, detector consistency,
-debugger, and plots. The vendor cluster() is called by the original prefix.
-EXPERIMENTAL / UNTESTED.
+Only the detector-independent statements from original get_candidates.main
+are required. Its complete main cannot be called: it unconditionally creates
+a two-detector DataManager and runs H1/L1 consistency and plots.
 """
 from __future__ import annotations
-import argparse
-import ast
-import inspect
-import json
-from pathlib import Path
-
 import numpy as np
+from scipy.stats import norm
+from scalar_dark_matter_lpsd.LPSDIO import MaxLKLIO
+from scalar_dark_matter_lpsd.lvk.get_candidates import cluster
 
 
-def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.0):
-    from scalar_dark_matter_lpsd.lvk import get_candidates as vendor
-    source = inspect.getsource(vendor.main)
-    tree = ast.parse(source)
-    fn = tree.body[0]
-    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        raise RuntimeError("Unexpected vendor candidate entry point")
-    # Keep EXACT original source statements from the top of main through
-    # candidate_idx/candidate_lambda. The next original statement creates
-    # DataManager, which loads H1/L1 transfer functions.
-    stop = next((i for i, stmt in enumerate(fn.body)
-                 if isinstance(stmt, ast.Assign)
-                 and any(isinstance(t, ast.Name) and t.id == "global_mngr"
-                         for t in stmt.targets)), None)
-    if stop is None:
-        raise RuntimeError("Vendor candidate main layout changed; fail closed")
-    prefix = fn.body[:stop]
-    rendered = ast.unparse(ast.Module(body=prefix, type_ignores=[]))
-    required = ("MaxLKLIO(", "zero_lkl", "max_lkl", "norm.ppf(",
-                "candidate_mask", "cluster(", "candidate_idx", "candidate_lambda")
-    if not all(s in rendered for s in required):
-        raise RuntimeError("Vendor candidate prefix missing required original operations")
-    # Keep the original statements inside their original function scope,
-    # including the original global declaration. Only truncate the
-    # LIGO-specific suffix and return its computed candidate frequencies.
-    # The original prefix defines mask and candidate_idx. Return exactly
-    # the original candidate_freqs expression from the vendor suffix.
-    fn.body = prefix + [ast.Return(value=ast.Subscript(
-        value=ast.Subscript(
-            value=ast.Attribute(value=ast.Name(id="lkl", ctx=ast.Load()),
-                                attr="frequency", ctx=ast.Load()),
-            slice=ast.UnaryOp(op=ast.Invert(),
-                              operand=ast.Name(id="mask", ctx=ast.Load())),
-            ctx=ast.Load()),
-        slice=ast.Name(id="candidate_idx", ctx=ast.Load()),
-        ctx=ast.Load()))]
-    scope = dict(vars(vendor))
-    compiled = compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])),
-                       inspect.getsourcefile(vendor.main), "exec")
-    exec(compiled, scope, scope)
-    frequencies = scope["main"](
-        str(Path(max_lkl_path).resolve(strict=True)),
-        None, None, None, "", None, None,
-        sigma_limit=float(sigma_limit))
-    output = Path(output_csv).resolve()
-    if output.exists():
-        raise FileExistsError(output)
-    np.savetxt(output, frequencies, fmt="%.12e")
-    return {
-        "status": "EXPERIMENTAL_UNTESTED_NOT_VALIDATED",
-        "candidate_stage": "EXACT original vendor get_candidates.main prefix, AST-executed",
-        "original_vendor_cluster_function": True,
-        "removed": "original H1/L1 consistency checks and plotting suffix",
-        "n_clusters": int(len(frequencies)),
-        "candidate_csv": str(output),
-    }
-
-
-if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("--max-lkl-path", required=True)
-    p.add_argument("--output-csv", required=True)
-    p.add_argument("--sigma-limit", type=float, default=5.0)
-    a = p.parse_args()
-    print(json.dumps(run_vendor_candidate_prefix(a.max_lkl_path,
-            a.output_csv, a.sigma_limit), indent=2))
+def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
+    lkl = MaxLKLIO(infile=str(max_lkl_path))
+    q0 = np.zeros_like(lkl.zero_lkl)
+    mask = lkl.mu > 0
+    q0[mask] = -2 * (lkl.zero_lkl[mask] - lkl.max_lkl[mask])
+    mask = np.isnan(q0) | (q0 >= 500)
+    q0 = q0[~mask]
+    if not len(q0):
+        raise ValueError("No valid vendor q0 bins")
+    significance_sigma = -norm.ppf(norm.cdf(-sigma_limit) / len(q0))
+    candidate_mask = q0 >= significance_sigma**2
+    candidate_idx, candidate_lambda = cluster(candidate_mask, lkl.mu[~mask])
+    frequencies = lkl.frequency[~mask][candidate_idx]
+    np.savetxt(output_csv, frequencies, fmt="%.12e")
+    return {"candidate_csv": str(output_csv), "n_clusters": int(len(frequencies)),
+            "original_vendor_function": "get_candidates.cluster"}
