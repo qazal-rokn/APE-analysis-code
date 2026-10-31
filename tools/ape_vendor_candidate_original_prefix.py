@@ -12,7 +12,7 @@ from scalar_dark_matter_lpsd.lvk.get_candidates import cluster
 
 
 def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
-    # Original get_candidates.main: exact statistical statements.
+    # Original get_candidates.main statistical statements, unchanged.
     lkl = MaxLKLIO(infile=str(max_lkl_path))
     q0 = np.zeros_like(lkl.zero_lkl)
     mask = lkl.mu > 0
@@ -32,18 +32,14 @@ def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.):
     candidate_idx, candidate_lambda = cluster(candidate_mask, lkl.mu[~mask])
     print(f"Number of clusters: {len(candidate_idx)}")
 
-    # Original candidate frequency and amplitude assignments, relocated
-    # immediately after clustering because intervening code is H1/L1-only.
+    # Original candidate frequency extraction, placed after clustering\n    # because the intervening DataManager and consistency tests are LIGO-only.
     candidate_freqs = lkl.frequency[~mask][candidate_idx]
-    candidate_lambdas = candidate_lambda
 
     # Original vendor CSV formatting; original writes after LIGO vetoes.
     dest = Path(output_csv)
     if dest.exists():
         raise FileExistsError(dest)
-    candidate_frequencies = []
-    for freq in candidate_freqs:
-        candidate_frequencies.append(freq)
+    candidate_frequencies = candidate_freqs
     with open(dest, "w") as f:
         f.write("\n".join([f"{x:.6e}" for x in candidate_frequencies]))
     return {"candidate_csv": str(dest), "n_clusters": int(len(candidate_idx)),
