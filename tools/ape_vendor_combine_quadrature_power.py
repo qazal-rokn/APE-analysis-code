@@ -43,14 +43,10 @@ def prepare(*, rho_x_ps, rho_y_ps, output_h5, fs_hz,
     target = Path(output_h5).expanduser().resolve()
     if target.exists() or not target.parent.is_dir():
         raise FileExistsError("Output exists or parent directory missing")
-    # Use the ORIGINAL vendor LPSDData writer rather than reproducing HDF5 IO.
-    # The only new operation is the linear sum of the two powers.
     from scalar_dark_matter_lpsd.LPSDIO import LPSDData
     native = LPSDData(
         np.log(total), freq=fx, fmin=float(fx[0]), fmax=float(fx[-1]),
-        fs=float(fs_hz), Jdes=int(len(fx)),
-        resolution=float(np.exp((np.log(fx[-1])-np.log(fx[0]))/(len(fx)-1))-1),
-        epsilon=10.0)
+        fs=float(fs_hz), Jdes=int(len(fx)))
     native.save_to_hdf5(str(target))
     def digest(p):
         return hashlib.sha256(p.read_bytes()).hexdigest()
