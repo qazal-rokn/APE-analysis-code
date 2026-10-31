@@ -16,28 +16,30 @@ import numpy as np
 
 
 def _load(path):
+    from scalar_dark_matter_lpsd.LPSDIO import LPSDOutput
     path = Path(path).expanduser().resolve(strict=True)
-    arr = np.loadtxt(path, comments="#", ndmin=2)
-    if arr.ndim != 2 or arr.shape[1] != 2 or len(arr) < 2:
-        raise ValueError(f"Expected two-column frequency,PS: {path}")
-    f, ps = arr[:, 0], arr[:, 1]
-    if (not np.isfinite(arr).all() or np.any(f <= 0) or
-            np.any(np.diff(f) <= 0) or np.any(ps <= 0)):
-        raise ValueError(f"Invalid native power spectrum: {path}")
-    return f, ps, path
+    source = LPSDOutput(str(path))
+    f, logps = np.asarray(source.freq), np.asarray(source.logPSD)
+    if f.ndim != 1 or logps.shape != f.shape or len(f) < 2:
+        raise ValueError("Invalid original vendor LPSDOutput shape")
+    if np.any(~np.isfinite(f)) or np.any(np.diff(f) <= 0):
+        raise ValueError("Invalid vendor frequency grid")
+    if np.any(~np.isfinite(logps)):
+        raise ValueError("Vendor LPSDOutput has missing/invalid bins; cannot sum safely")
+    return f, np.exp(logps), path, dict(source.kwargs)
 
 
 def prepare(*, rho_x_ps, rho_y_ps, output_h5, fs_hz,
             t0, t1, provenance_json=None):
-    fx, x, px = _load(rho_x_ps)
-    fy, y, py = _load(rho_y_ps)
+    fx, x, px, metadata_x = _load(rho_x_ps)
+    fy, y, py, metadata_y = _load(rho_y_ps)
     if not np.array_equal(fx, fy):
         raise ValueError("X and Y C-LPSD grids differ: no interpolation permitted")
     if not np.isfinite(fs_hz) or fs_hz <= 0:
         raise ValueError("Invalid original sample rate")
     if int(t1) <= int(t0):
         raise ValueError("Invalid observation bounds")
-    total = x + y
+    if metadata_x != metadata_y:\n        raise ValueError("Original vendor X/Y C-LPSD metadata differ")\n    if not np.isclose(float(metadata_x["fs"]), float(fs_hz), rtol=0, atol=0):\n        raise ValueError("fs_hz differs from original vendor metadata")\n    total = x + y
     if not np.isfinite(total).all() or np.any(total <= 0):
         raise ValueError("Invalid combined linear power")
     target = Path(output_h5).expanduser().resolve()
