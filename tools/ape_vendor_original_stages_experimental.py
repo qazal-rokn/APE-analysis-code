@@ -48,7 +48,7 @@ def run(config):
     files = sorted(folder.glob(prefix + "*.h5"))
     if not files or any(not x.name.endswith("_APE.h5") for x in files):
         raise ValueError("Expected exclusively combined _t0_t1_APE.h5 vendor inputs")
-    if sorted(x for x in folder.iterdir() if x.name.startswith(prefix)) != files:
+    if sorted(x for x in folder.iterdir() if x.name.startswith(prefix) and x.suffix == ".h5") != files:
         raise ValueError("Input directory contains unexpected prefixed files")
     out = Path(cfg["output_directory"]).resolve()
     if out.exists():
