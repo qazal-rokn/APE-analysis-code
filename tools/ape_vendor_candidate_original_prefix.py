@@ -43,21 +43,22 @@ def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.0):
     # Keep the original statements inside their original function scope,
     # including the original global declaration. Only truncate the
     # LIGO-specific suffix and return its computed candidate frequencies.
-    fn.body = prefix + [ast.Return(value=ast.Tuple(elts=[
-        ast.Subscript(
-            value=ast.Subscript(value=ast.Attribute(value=ast.Name(id="lkl", ctx=ast.Load()),
-                attr="frequency", ctx=ast.Load()),
-                slice=ast.UnaryOp(op=ast.Invert(), operand=ast.Name(id="mask", ctx=ast.Load())),
-                ctx=ast.Load()),
-            slice=ast.Name(id="candidate_idx", ctx=ast.Load()), ctx=ast.Load()),
-        ast.Call(func=ast.Name(id="len", ctx=ast.Load()),
-                 args=[ast.Name(id="candidate_idx", ctx=ast.Load())], keywords=[])
-    ], ctx=ast.Load()))]
+    # The original prefix defines mask and candidate_idx. Return exactly
+    # the original candidate_freqs expression from the vendor suffix.
+    fn.body = prefix + [ast.Return(value=ast.Subscript(
+        value=ast.Subscript(
+            value=ast.Attribute(value=ast.Name(id="lkl", ctx=ast.Load()),
+                                attr="frequency", ctx=ast.Load()),
+            slice=ast.UnaryOp(op=ast.Invert(),
+                              operand=ast.Name(id="mask", ctx=ast.Load())),
+            ctx=ast.Load()),
+        slice=ast.Name(id="candidate_idx", ctx=ast.Load()),
+        ctx=ast.Load()))]
     scope = dict(vars(vendor))
     compiled = compile(ast.fix_missing_locations(ast.Module(body=[fn], type_ignores=[])),
                        inspect.getsourcefile(vendor.main), "exec")
     exec(compiled, scope, scope)
-    frequencies, n_candidates = scope["main"](
+    frequencies = scope["main"](
         str(Path(max_lkl_path).resolve(strict=True)),
         None, None, None, "", None, None,
         sigma_limit=float(sigma_limit))
@@ -70,7 +71,7 @@ def run_vendor_candidate_prefix(max_lkl_path, output_csv, sigma_limit=5.0):
         "candidate_stage": "EXACT original vendor get_candidates.main prefix, AST-executed",
         "original_vendor_cluster_function": True,
         "removed": "original H1/L1 consistency checks and plotting suffix",
-        "n_clusters": int(n_candidates),
+        "n_clusters": int(len(frequencies)),
         "candidate_csv": str(output),
     }
 
