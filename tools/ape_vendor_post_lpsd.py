@@ -42,6 +42,14 @@ def run(config):
     combined.mkdir()
     background_path = out / "vendor_background.json"
     seen = set()
+    background_options = {
+        "n_processes": 1, "buffer": 50, "pruning": 1,
+        "segment_size": 1000, "ana_fmin": 10., "ana_fmax": 5000.,
+        "k_min": 4, "k_pruning": 1, "k_plateau": 3,
+        "bin_scaling": .15, "verbose": False, "plot_path": None,
+        "kernel_size": 30, "cfd_fraction": .1
+    }
+    background_options.update(cfg.get("vendor_background_options", {}))
     for obs in observations:
         x = LPSDOutput(str(Path(obs["rho_x_lpsd"]).resolve(strict=True)))
         y = LPSDOutput(str(Path(obs["rho_y_lpsd"]).resolve(strict=True)))
@@ -83,7 +91,7 @@ def run(config):
             raise RuntimeError("Combined file changed summed power")
         fit_background.fit_background_in_file(
             str(path), str(background_path),
-            **cfg.get("vendor_background_options", {}))
+            **background_options)
 
     group = LPSDDataGroup(str(combined), "ape_",
                           buffer_path=str(out / "vendor_group_buffer.h5"))
@@ -91,7 +99,7 @@ def run(config):
         raise RuntimeError("Original vendor group failed to load all observations")
     if set(group.metadata["ifo"]) != {"APE"}:
         raise RuntimeError("Unexpected detector metadata")
-    if not np.array_equal(group.freq, beta_freq):
+    if not np.array_equal(group.freq, beta_freq, equal_nan=True):
         raise ValueError("APE response must use exact native C-LPSD grid")
     bkg = LPSDJSONIO(str(background_path))
     if not np.all(np.diff(beta_freq) > 0):
