@@ -49,6 +49,8 @@ def generate(config):
         args.setdefault("accounting_group","ligo.prod.o4.cw.darkmatter.lpsd")
         args.setdefault("accounting_group_user","")
         args.setdefault("python_executable","python")
+        if args["method"] == 5 and not args["use_condor"]:
+            raise ValueError("Original vendor method=5 requires Condor; use original method=2/3 locally or configure Condor")
         create_runfile(args)
         scripts.append(args["run_file"])
     return {"status":"GENERATED_NOT_EXECUTED","original_vendor_function":"create_runfile",
