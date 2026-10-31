@@ -23,6 +23,7 @@ def run(config_file):
     if out.exists():
         raise FileExistsError("Refusing to overwrite or resume experimental results")
     out.mkdir(parents=True)
+    load_external(root)
     from scalar_dark_matter_lpsd.LPSDIO import LPSDDataGroup, LPSDJSONIO
     from scalar_dark_matter_lpsd.lvk.fit_background import fit_background_in_file, bkg_model
     from scalar_dark_matter_lpsd.lvk.max_lkl_executable import process_q0
@@ -30,7 +31,6 @@ def run(config_file):
     from scalar_dark_matter_lpsd.lvk.get_candidates import cluster
     from scipy.stats import norm
 
-    load_external(root)
     paths = [Path(x).resolve(strict=True) for x in cfg["vendor_lpsd_files"]]
     bkg_path = out / "vendor_background.json"
     bkg_opts = dict(cfg.get("vendor_background_options", {}))
