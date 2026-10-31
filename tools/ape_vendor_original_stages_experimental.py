@@ -97,10 +97,19 @@ def run(config):
         raise RuntimeError("No valid vendor likelihood results")
     from scalar_dark_matter_lpsd.LPSDIO import MaxLKLIO
     MaxLKLIO(data=results).save(str(out / "vendor_mle_result.npy"))
-    # Reuse original expected upper-limit calculation, no reimplementation.
-    ul.main(max_lkl_path=str(out / "vendor_mle_result.npy"),
-            output_file=str(out / "vendor_expected_limits.npy"),
-            **cfg.get("vendor_upper_limit_options", {}))
+    # Original vendor ul.main contains hard-coded LIGO filesystem paths,
+    # transfer-function loading, and plots. Its original numerical upper-limit
+    # function is portable and reused directly; the main() driver is not.
+    limits = np.full((len(results), 3), np.nan)
+    limits[:, 0] = results[:, 0]
+    for i, sigma in enumerate(results[:, 4]):
+        if np.isfinite(sigma) and sigma > 0:
+            limit, uncertainty = ul.get_upper_limits_approx(
+                float(sigma), alpha_CL=float(cfg.get("alpha_CL", 0.95)))
+            limits[i, 1] = float(np.asarray(limit).reshape(-1)[0])
+            limits[i, 2] = float(np.asarray(uncertainty).reshape(-1)[0])
+    np.savetxt(out / "vendor_expected_sqrt_mu.csv", limits, delimiter=",",
+               header="frequency_hz,sqrt_mu_ul,sigma_sqrt_mu", comments="")
     # The original get_candidates.main includes a two-IFO consistency test
     # that is not applicable to the single combined APE channel. Do not
     # silently run or reinterpret it.
@@ -110,11 +119,12 @@ def run(config):
         "combined_observation_count": len(files),
         "likelihood_bins": len(results),
         "reused": ["fit_background_in_file", "make_args", "process_q0",
-                   "calc_upper_limit.main"],
+                   "get_upper_limits_approx"],
         "only_detector_response_override": "stats.get_beta scoped to make_args",
         "not_implemented": ["vendor two-observatory consistency test",
                             "verified vendor candidate workflow for one APE channel",
-                            "automatic native C-LPSD to combined vendor HDF5 wiring"],
+                            "automatic native C-LPSD to combined vendor HDF5 wiring",
+                            "vendor upper-limit plotting and LIGO-only conversions"],
         "no_validation_or_parity_tests_run": True
     }, indent=2))
     return str(out / "STATUS.json")
