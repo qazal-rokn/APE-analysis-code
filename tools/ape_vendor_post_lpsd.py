@@ -11,6 +11,7 @@ import argparse
 import json
 from pathlib import Path
 import numpy as np
+import h5py
 
 
 def run(config):
@@ -67,7 +68,19 @@ def run(config):
         # Stable linear-power summation in log domain; preserves NaN gaps.
         summed = np.logaddexp(x.logPSD, y.logPSD)
         path = combined / name
-        LPSDData(summed, freq=x.freq, **dict(x.kwargs)).save_to_hdf5(str(path))
+        # Vendor LPSDData.__init__ does not set self.freq when freq is
+        # provided. Preserve native missing-bin positions with the exact
+        # original HDF5 datasets/attributes instead of calling that writer.
+        with h5py.File(path, "w") as file:
+            file.create_dataset("frequency", data=x.freq)
+            file.create_dataset("logPSD", data=summed)
+            file["logPSD"].attrs.update({k: (-1 if v is None else v)
+                                         for k, v in x.kwargs.items()})
+        check = LPSDOutput(str(path))
+        if not np.array_equal(check.freq, x.freq, equal_nan=True):
+            raise RuntimeError("Combined file changed native frequency grid")
+        if not np.array_equal(check.logPSD, summed, equal_nan=True):
+            raise RuntimeError("Combined file changed summed power")
         fit_background.fit_background_in_file(
             str(path), str(background_path),
             **cfg.get("vendor_background_options", {}))
@@ -81,6 +94,8 @@ def run(config):
     if not np.array_equal(group.freq, beta_freq):
         raise ValueError("APE response must use exact native C-LPSD grid")
     bkg = LPSDJSONIO(str(background_path))
+    if not np.all(np.diff(beta_freq) > 0):
+        raise ValueError("APE beta grid must be strictly increasing")
     with ape_beta(stats, beta_freq, beta):
         args = max_lkl_executable.make_args(
             group, bkg, {"APE": None}, 0, -1,
