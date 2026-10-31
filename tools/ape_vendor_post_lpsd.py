@@ -1,0 +1,128 @@
+"""Single post-LPSD APE entry point. Existing APE ingestion/calibration/C-LPSD unchanged.
+
+Uses original vendor LPSDOutput, LPSDData, fit_background_in_file,
+LPSDDataGroup, LPSDJSONIO, make_args, process_q0, MaxLKLIO,
+get_upper_limits_approx and the vendor candidate prefix adapter.
+Only new numerical operation: PS_X + PS_Y.
+Experimental: do not use for scientific results until validated.
+"""
+from __future__ import annotations
+import argparse
+import json
+from pathlib import Path
+import numpy as np
+
+
+def run(config):
+    from scalar_dark_matter_lpsd.LPSDIO import (
+        LPSDOutput, LPSDData, LPSDDataGroup, LPSDJSONIO, MaxLKLIO)
+    from scalar_dark_matter_lpsd.lvk import (
+        fit_background, max_lkl_executable, calc_upper_limit, stats)
+    from ape_vendor_original_stages_experimental import ape_beta
+    from ape_vendor_candidate_original_prefix import run_vendor_candidate_prefix
+
+    cfg = json.loads(Path(config).resolve(strict=True).read_text())
+    out = Path(cfg["output_directory"]).resolve()
+    if out.exists():
+        raise FileExistsError(out)
+    observations = cfg["observations"]
+    if not observations:
+        raise ValueError("No X/Y C-LPSD pairs supplied")
+    with np.load(cfg["ape_beta_grid_npz"], allow_pickle=False) as response:
+        beta_freq = np.array(response["frequency_hz"])
+        beta = np.array(response["beta_ape"])
+    peak = (np.load(cfg["vendor_peak_shape_npy"], allow_pickle=False)
+            if cfg.get("vendor_peak_shape_npy") else np.ones(1))
+    if peak.ndim != 1 or np.sum(peak) != 1.:
+        raise ValueError("Original vendor peak-shape normalization failed")
+
+    out.mkdir(parents=True)
+    combined = out / "combined"
+    combined.mkdir()
+    background_path = out / "vendor_background.json"
+    seen = set()
+    for obs in observations:
+        x = LPSDOutput(str(Path(obs["rho_x_lpsd"]).resolve(strict=True)))
+        y = LPSDOutput(str(Path(obs["rho_y_lpsd"]).resolve(strict=True)))
+        if not np.array_equal(x.freq, y.freq, equal_nan=True):
+            raise ValueError("Native X/Y grids differ")
+        if set(x.kwargs) != set(y.kwargs):
+            raise ValueError("Native X/Y metadata keys differ")
+        for key in x.kwargs:
+            if x.kwargs[key] is None or y.kwargs[key] is None:
+                if x.kwargs[key] is not None or y.kwargs[key] is not None:
+                    raise ValueError("Native X/Y metadata differ")
+            elif not np.array_equal(np.asarray(x.kwargs[key]),
+                                    np.asarray(y.kwargs[key]), equal_nan=True):
+                raise ValueError("Native X/Y metadata differ")
+        if x.logPSD.shape != y.logPSD.shape:
+            raise ValueError("Native X/Y PS shapes differ")
+        t0, t1 = int(obs["t0"]), int(obs["t1"])
+        if t1 <= t0:
+            raise ValueError("Invalid observation interval")
+        name = f"ape_{t0}_{t1}_APE.h5"
+        if name in seen:
+            raise ValueError("Duplicate observation")
+        seen.add(name)
+        # Stable linear-power summation in log domain; preserves NaN gaps.
+        summed = np.logaddexp(x.logPSD, y.logPSD)
+        path = combined / name
+        LPSDData(summed, freq=x.freq, **dict(x.kwargs)).save_to_hdf5(str(path))
+        fit_background.fit_background_in_file(
+            str(path), str(background_path),
+            **cfg.get("vendor_background_options", {}))
+
+    group = LPSDDataGroup(str(combined), "ape_",
+                          buffer_path=str(out / "vendor_group_buffer.h5"))
+    if group.logPSD.shape[0] != len(seen):
+        raise RuntimeError("Original vendor group failed to load all observations")
+    if set(group.metadata["ifo"]) != {"APE"}:
+        raise RuntimeError("Unexpected detector metadata")
+    if not np.array_equal(group.freq, beta_freq):
+        raise ValueError("APE response must use exact native C-LPSD grid")
+    bkg = LPSDJSONIO(str(background_path))
+    with ape_beta(stats, beta_freq, beta):
+        args = max_lkl_executable.make_args(
+            group, bkg, {"APE": None}, 0, -1,
+            float(cfg.get("ana_fmin", 10)), float(cfg.get("ana_fmax", 5000)),
+            peak, float(cfg.get("max_chi_sqr", 10)),
+            float(cfg.get("min_log10mu", -40)),
+            float(cfg.get("max_log10mu", -32)))
+        rows = np.asarray(list(map(max_lkl_executable.process_q0, args)))
+    if rows.ndim != 2 or rows.shape[1] != 5 or len(rows) == 0:
+        raise RuntimeError("Original vendor likelihood produced no valid rows")
+    mle_file = out / "vendor_max_lkl.npy"
+    MaxLKLIO(data=rows).save(str(mle_file))
+    candidate_result = run_vendor_candidate_prefix(
+        mle_file, out / "candidates.csv", float(cfg.get("sigma_limit", 5)))
+
+    # Vendor numerical UL unchanged; vendor main has LIGO-only plots and files.
+    expected = np.full((len(rows), 3), np.nan)
+    expected[:, 0] = rows[:, 0]
+    for i, sigma in enumerate(rows[:, 4]):
+        if np.isfinite(sigma) and sigma > 0:
+            upper, err = calc_upper_limit.get_upper_limits_approx(
+                float(sigma), alpha_CL=float(cfg.get("alpha_CL", .95)))
+            expected[i, 1] = float(np.asarray(upper).item())
+            expected[i, 2] = float(np.asarray(err).item())
+    np.savetxt(out / "vendor_expected_limits.csv", expected, delimiter=",",
+               header="frequency_hz,upper_sqrt_mu,sigma_upper_sqrt_mu", comments="")
+    status = {"status": "EXPERIMENTAL_UNTESTED", "scope": "post-C-LPSD",
+              "original_vendor_stages": [
+                  "LPSDOutput", "LPSDData.save_to_hdf5",
+                  "fit_background_in_file", "LPSDDataGroup", "LPSDJSONIO",
+                  "make_args", "process_q0", "MaxLKLIO",
+                  "get_candidates.main original-statistics prefix",
+                  "get_upper_limits_approx"],
+              "necessary_ape_changes": ["X+Y power sum", "APE beta response",
+                  "exclude LIGO-only consistency and plots"],
+              "observations": len(seen), "likelihood_rows": len(rows),
+              "candidate_result": candidate_result}
+    (out / "STATUS.json").write_text(json.dumps(status, indent=2))
+    return status
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", required=True)
+    print(json.dumps(run(parser.parse_args().config), indent=2))
