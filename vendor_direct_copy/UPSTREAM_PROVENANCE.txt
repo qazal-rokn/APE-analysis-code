@@ -1,0 +1,12 @@
+Immutable upstream source provenance
+
+Upstream repository: https://github.com/AlexandreGoettel/Scalar-Dark-Matter-LPSD
+Upstream commit: f9e78cbe1031406e217c0bfb63a2f6f0043a0a5a
+Upstream Git tree: 237b3ba91539ca0ac188cc78c2906fb035b6c301
+Imported subtree: vendor_direct_copy/original_program
+Imported subtree Git tree: 237b3ba91539ca0ac188cc78c2906fb035b6c301
+Number of tracked files: 68
+All file blob SHA-1 hashes and Git executable modes identical.
+Verification: exact root Git tree hash match, as recorded above.
+Original files are unmodified. Execution validation is not included.
+License and attributions are preserved in original_program/.
