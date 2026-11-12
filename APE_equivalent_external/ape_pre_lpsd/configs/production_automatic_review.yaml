@@ -1,0 +1,17 @@
+# Researcher-approved whole-acquisition review-only run. No signal export or spectra.
+reference_project: /Users/user/Desktop/APE Research/APE-data-analysis
+input_root: /Users/user/Desktop/After_wedged_EOM
+filename_prefix: Shot_Noise_RAM_EOM-1etha_0_x_y_
+first_file_index: 0
+last_file_index: 13
+chronology_basis: researcher_provided_order_and_continuity
+output_root: results
+chunk_samples: 1000000
+display_envelopes_per_raw_chunk: 100
+display_max_points_per_reduced_file: 10000
+channels:
+  cavity_trans: cavity_trans
+  pem2_x: pem2_X
+  pem2_y: pem2_Y
+  pem1_x: pem1_x
+  pem1_y: pem1_Y

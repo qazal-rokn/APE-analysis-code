@@ -1,0 +1,8 @@
+# This is the only accepted automatic chronology input. Names and mtimes are not evidence.
+chronology_basis: researcher_provided_or_explicit_manifest
+sources:
+  - relative_path: experiment_part_0000.dxd
+    raw_sample_count: 0 # replace before execution
+    chronology_evidence: researcher-provided acquisition order, recorded in manifest
+    boundary_to_next_verified: false # must be true only with explicit physical-boundary evidence
+    sha256: null

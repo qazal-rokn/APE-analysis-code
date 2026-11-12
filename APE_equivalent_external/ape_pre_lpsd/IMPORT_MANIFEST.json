@@ -1,0 +1,315 @@
+{
+  "purpose": "Byte-for-byte import of pre-LPSD APE workflow",
+  "source_repository": "qazal-rokn/APE-analysis-code",
+  "source_branch": "main",
+  "source_commit": "03722edb975e91a3653d3da673e5a521bb3a2854",
+  "source_root_tree": "26978f3bcecd3a000fc081fa7c2460cf7e91fdd9",
+  "import_directory": "APE_equivalent_external/ape_pre_lpsd/",
+  "source_files_copied": 50,
+  "all_source_blob_hashes_match": true,
+  "upstream_reference_tree": "237b3ba91539ca0ac188cc78c2906fb035b6c301",
+  "original_vendor_files_unchanged": true,
+  "validation": "Source SHA verification only; runtime tests not executed during GitHub import",
+  "files": [
+    {
+      "source_path": "configs/dxd_ingestion.example.yaml",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/configs/dxd_ingestion.example.yaml",
+      "blob_sha": "a929e018bfea9401454c0cb83df52b154f80b98b",
+      "mode": "100644"
+    },
+    {
+      "source_path": "configs/ingestion.example.yaml",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/configs/ingestion.example.yaml",
+      "blob_sha": "589aa0127e767ef6dce3f8f37a11fa5042f889e0",
+      "mode": "100644"
+    },
+    {
+      "source_path": "configs/production_automatic_review.yaml",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/configs/production_automatic_review.yaml",
+      "blob_sha": "06b3f4a96a4b6ca73c6b9217c35f74de258fa5b3",
+      "mode": "100644"
+    },
+    {
+      "source_path": "configs/source_manifest.example.yaml",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/configs/source_manifest.example.yaml",
+      "blob_sha": "faeed383200b7d0638666b5a8ae8c41c3729b320",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/ANALYSIS_CONTRACT_APE_CALIBRATION.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/ANALYSIS_CONTRACT_APE_CALIBRATION.md",
+      "blob_sha": "44d8e44ed069a554844d2074317f7636943053b7",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/ANALYSIS_CONTRACT_APE_CLEANING.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/ANALYSIS_CONTRACT_APE_CLEANING.md",
+      "blob_sha": "2876df675a2e7329570e6319499071a958d5ba2c",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/DATA_FORMAT.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/DATA_FORMAT.md",
+      "blob_sha": "4edc7681c1d1eaf332f983552ad740913a5c3495",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/INGESTION_AND_SEGMENT_SELECTION.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/INGESTION_AND_SEGMENT_SELECTION.md",
+      "blob_sha": "d780fa2f9bbe884734418ac8208fa362cbea8eee",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/INGESTION_ARCHITECTURE.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/INGESTION_ARCHITECTURE.md",
+      "blob_sha": "ba7bbbb6185d6744694c166e697d63c35483baed",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/VALIDATION_REPORT.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/VALIDATION_REPORT.md",
+      "blob_sha": "1458f22d24885c86897f8c58db21da5c5648cbcb",
+      "mode": "100644"
+    },
+    {
+      "source_path": "docs/VERIFIED_SEGMENT_EXTRACTION.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/docs/VERIFIED_SEGMENT_EXTRACTION.md",
+      "blob_sha": "01bab2b45f137bce5f250cb586b8650589bee953",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/__init__.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/__init__.py",
+      "blob_sha": "ac5ab866512c3fa19deef3b79130066fb509fcfd",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/calibrated_hdf5.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/calibrated_hdf5.py",
+      "blob_sha": "49f1f0ccbc77001ce765348db5842fb009e5617e",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/calibrated_review.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/calibrated_review.py",
+      "blob_sha": "3163c44a794fedeab0465bd9913a2cd192079c23",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/calibration.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/calibration.py",
+      "blob_sha": "ebcd6825a081e441d2963cc77c1357413546eb11",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/cleaning.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/cleaning.py",
+      "blob_sha": "a7601020938b83907d0cbe5e7110e776ac8a8937",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/__init__.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/__init__.py",
+      "blob_sha": "840f8ef4a2a92d158a704f8d76844ad4318c9350",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/automatic.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/automatic.py",
+      "blob_sha": "96c25c3ae400d1380b8c00321926f696ab7bdccb",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/backend_contract.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/backend_contract.py",
+      "blob_sha": "180fd80fbb7413d4811c6defe0a4e3e2c8a4a6b7",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/chronology.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/chronology.py",
+      "blob_sha": "e76aab13891b48807a9fc08bc71eaae593b743be",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/config.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/config.py",
+      "blob_sha": "a37cdadeb3268c75a10dba01f1b85a131e4ada51",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/dxd_reader.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/dxd_reader.py",
+      "blob_sha": "73db2838f06ecbeaa5e42e4a16f90dfd942b4c93",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/models.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/models.py",
+      "blob_sha": "dc9bc9853c63dcec472ff9d3d2df4ca8497b906d",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/plotting.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/plotting.py",
+      "blob_sha": "04d6555f05812a5881b3b266634889b2a33a1b84",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/reference_paths.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/reference_paths.py",
+      "blob_sha": "16e098b3970cb82b655ebca723c0f7cecb86c261",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/reference_workflow.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/reference_workflow.py",
+      "blob_sha": "91bb15a75ec87b4589a0a59f1d89a56bd99faa85",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/review_artifacts.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/review_artifacts.py",
+      "blob_sha": "7ca5e095d82e5bba179118bf0580fb23a3c45fb9",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/ingestion/segments.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/ingestion/segments.py",
+      "blob_sha": "6085dccc88946a556de848be2b93bc6b72ea3941",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/ape_c_lpsd/verified_segment.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/ape_c_lpsd/verified_segment.py",
+      "blob_sha": "c83f91ff14180c57c03ebee22e0b78e113815181",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/physics/APE_CALIBRATION.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/physics/APE_CALIBRATION.md",
+      "blob_sha": "adba448f686b228ed2cce90594bae5ff75a72d6a",
+      "mode": "100644"
+    },
+    {
+      "source_path": "src/physics/APE_CLEANING.md",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/src/physics/APE_CLEANING.md",
+      "blob_sha": "184a6f903836e1074dcebbb88e1a2d2f44226c37",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_calibrated_hdf5.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_calibrated_hdf5.py",
+      "blob_sha": "f31c5f78ed998d4283c18da69a1fc1b4aa332960",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_calibrated_review.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_calibrated_review.py",
+      "blob_sha": "06e2c6349b58003f20303e1a276c1b78c2132f15",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_calibration.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_calibration.py",
+      "blob_sha": "42e00b3f39210081df29d8741efc1b9b21f7a4ca",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_cleaning.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_cleaning.py",
+      "blob_sha": "ab08218c32b08c386a920fd476e41f12d7897303",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_cleaning_inspection.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_cleaning_inspection.py",
+      "blob_sha": "7e8a7a470d83e950facbf3a4fa4abac546eb045b",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_dxd_reader.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_dxd_reader.py",
+      "blob_sha": "54d292d182023e8e4f0d098bc3faaf15ba11448c",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_ingestion_config.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_ingestion_config.py",
+      "blob_sha": "b373d5355cf1e0296a1b0cef0a998bafbc290086",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_ingestion_plotting.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_ingestion_plotting.py",
+      "blob_sha": "6ddc06f28f53adc52af3199831d0185b5a67190f",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_ingestion_segments.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_ingestion_segments.py",
+      "blob_sha": "2018c76756d337aac4c6745fef60065d5e3b25fe",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tests/test_reference_paths.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tests/test_reference_paths.py",
+      "blob_sha": "bb36d2a13c2c07554ecc1e3b5ded96cb241e98b0",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/calibrate_frozen_segment_to_hdf5.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/calibrate_frozen_segment_to_hdf5.py",
+      "blob_sha": "2113679f29a14963d80ebacf413ff457f7513b2f",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/find_longest_good_segment.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/find_longest_good_segment.py",
+      "blob_sha": "ce2897ba42d349a28508954f390484dedf8e8d01",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/ingest_dxd.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/ingest_dxd.py",
+      "blob_sha": "b560b8208655f317884b332ca3676eadb14dc397",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/inspect_cleaning.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/inspect_cleaning.py",
+      "blob_sha": "2ed6c0aab470b8fb5f16524ee5bd626468bd32dc",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/inspect_cleaning_multifile.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/inspect_cleaning_multifile.py",
+      "blob_sha": "e45d7be71b2f0dc97f05d177e06e43867dad9df4",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/rank_cavity_candidates_multifile.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/rank_cavity_candidates_multifile.py",
+      "blob_sha": "d183c580ba605e45e88af684ab99fc00b2cacb68",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/rank_cavity_segments_multifile.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/rank_cavity_segments_multifile.py",
+      "blob_sha": "b52c83f28e21810723a6007df98f0809ec8d7e85",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/run_production_automatic_review.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/run_production_automatic_review.py",
+      "blob_sha": "3fb2975a7593236857327a931497a1c192bb9926",
+      "mode": "100644"
+    },
+    {
+      "source_path": "tools/validate_frozen_segment_calibration.py",
+      "imported_path": "APE_equivalent_external/ape_pre_lpsd/tools/validate_frozen_segment_calibration.py",
+      "blob_sha": "bd424f993901549fbba3ffea663ab063ed9b91f8",
+      "mode": "100644"
+    }
+  ]
+}

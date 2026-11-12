@@ -1,0 +1,45 @@
+# Canonical APE stage-1 ingestion configuration.
+# Copy this file for each run and replace every run-specific value explicitly.
+
+input_file: /path/to/run.dxd
+
+# Read-only APE reference project containing vendor/dewesoft/5.0.8/.
+reference_project: /path/to/read-only/APE-data-analysis
+
+# Reserved for later non-overwriting provenance/review artifacts.
+# Stage 1 does not write calibrated data here.
+output_directory: /path/to/ape-ingestion-results
+
+channels:
+  x_1f: pem1_x
+  y_1f: pem1_Y
+  x_2f: pem2_X
+  y_2f: pem2_Y
+  cavity_transmission: cavity_trans
+
+# Reduced-block cleaning adapted from the validated earlier APE quality code.
+# Cavity (unchanged): centered local q90 of 0.05 s block averages, tested with
+# block minimum; three refinement iterations and a one-sided 90% lower cut.
+# eta0: calibrate every raw sample first, then use the 0.05 s eta0 block mean
+# to build a past-only q90 from previously accepted cavity-good/eta-good blocks.
+# The 0.05 s eta0 block minimum is tested against an 80% lower cut. Rejected
+# eta0 blocks never update the future reference; if the 60 s accepted-history
+# window empties, the last healthy eta0 reference is held.
+cleaning:
+  block_size_seconds: 0.05
+  reference_window_seconds: 60.0
+  reference_quantile: 0.90
+  refinement_iterations: 3
+  cavity_lower_fraction: 0.90
+  eta0_lower_fraction: 0.80
+
+# These are run-specific calibration inputs, not universal APE constants.
+# Stage 1 records/validates them but does not yet apply calibration.
+calibration:
+  cavity_transmission_w_per_v: 0.020
+  responsivity_a_per_w: 0.7
+  transimpedance_gain_v_per_a: 1000000.0
+
+  # H2: measured photodiode/electronics response at 2f.
+  # A value below 1 means the 2f signal is attenuated by the readout chain.
+  second_harmonic_pd_response: 0.7
