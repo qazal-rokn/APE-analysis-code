@@ -84,5 +84,25 @@ class HandoffTests(unittest.TestCase):
             self.run_handoff()
 
 
+    def test_unmodified_vendor_reader_rejects_native_four_column_ape_output(self):
+        # Source comparison: the vendor text reader requires a command-line header.
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from scalar_dark_matter_lpsd.LPSDIO import LPSDOutput
+        with self.assertRaisesRegex(OSError, 'Invalid output file'):
+            LPSDOutput(str(self.x))
+
+    def test_header_only_text_conversion_does_not_preserve_native_frequency_grid(self):
+        # Even with a synthetic vendor-style command-line header, its text
+        # reader regenerates a logspace grid, ignoring the first data column.
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+        from scalar_dark_matter_lpsd.LPSDIO import LPSDOutput
+        header = '# Command line -s 1 -t 3 -f 20 -J 3 -n 3 -E 10\n'
+        rows = '1\t0.0001\t20\t2\n2\t0.0002\t20\t4\n3\t0.0003\t30\t5\n'
+        self.x.write_text(header + rows)
+        loaded = LPSDOutput(str(self.x))
+        np.testing.assert_allclose(loaded.freq, [1., np.sqrt(3.), 3.], rtol=1e-14)
+        self.assertNotEqual(float(loaded.freq[1]), 2.0)
+
+
 if __name__ == '__main__':
     unittest.main()
