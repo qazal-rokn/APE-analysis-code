@@ -45,6 +45,7 @@ def run_single_quadrature(
     max_log10mu: int,
     max_chi_sqr: float = 10.0,
     max_frequencies: int | None = None,
+    start_index: int = 0,
     n_seed_lkl: int = 1000,
 ) -> dict:
     """Run ORIGINAL calc_max_lkl on one APE channel with supplied PSD response.
@@ -72,6 +73,8 @@ def run_single_quadrature(
         raise APELikelihoodError("Invalid analysis frequencies, mu scan bounds or fit parameters")
     if max_frequencies is not None and max_frequencies <= 0:
         raise APELikelihoodError("max_frequencies must be positive")
+    if not isinstance(start_index, int) or start_index < 0:
+        raise APELikelihoodError("start_index must be a nonnegative integer")
 
     data = LPSDOutput(str(spectrum))  # unchanged vendor reader
     peak_norm, metadata = load_peak_norm(response, data.freq)
@@ -83,7 +86,7 @@ def run_single_quadrature(
     if not required.issubset(table.columns):
         raise APELikelihoodError("Vendor background record has missing columns")
 
-    start = int(np.searchsorted(data.freq, ana_fmin, side="left"))
+    start = int(np.searchsorted(data.freq, ana_fmin, side="left")) + start_index
     stop = int(np.searchsorted(data.freq, ana_fmax, side="left"))
     if max_frequencies is not None:
         stop = min(stop, start + max_frequencies)
@@ -142,6 +145,8 @@ def run_single_quadrature(
         "mu_is_signed_vendor_fit_parameter": True,
         "joint_xy_likelihood_used": False,
         "frequency_range_hz": [ana_fmin, ana_fmax],
+        "start_index_within_analysis_range": start_index,
+        "native_grid_indices": [start, stop],
         "frequency_count": len(rows),
         "frequencies_skipped_by_background": skipped,
         "scan_log10mu": [min_log10mu, max_log10mu],
@@ -172,6 +177,8 @@ def main() -> None:
     p.add_argument("--max-log10mu", required=True, type=int)
     p.add_argument("--max-chi-sqr", type=float, default=10.0)
     p.add_argument("--max-frequencies", type=int, default=None)
+    p.add_argument("--start-index", type=int, default=0,
+                   help="Zero-based offset from first selected APE frequency for independent chunk jobs")
     args = vars(p.parse_args())
     print(json.dumps(run_single_quadrature(**{k.replace("-", "_"): v for k, v in args.items()}), indent=2))
 
