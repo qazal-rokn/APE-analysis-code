@@ -71,3 +71,38 @@ the original external `LPSDOutput` and `LPSDDataGroup` interfaces.
 No real 5,035,956-bin APE handoff or background fit was executed for this
 change. The original likelihood still expects LIGO H1/L1 response metadata;
 that is a **later step**, not changed here.
+
+
+## Optional APE path using the *original* external converter
+
+`prepare_vendor_lpsd_original.py` is a separate experiment that routes the
+APE four-column spectra through the **unchanged**
+`scalar_dark_matter_lpsd.LPSDIO.LPSDOutput` and its original
+`save_to_hdf5()` method. The adapter supplies the vendor text header and
+tab delimiter expected by that reader; it does not change spectral mathematics.
+The original reader reconstructs the logarithmic grid with `np.logspace`.
+
+Unlike `prepare_vendor_lpsd.py`, this path deliberately uses the vendor's
+reconstructed frequencies. It produces a JSON comparison of those frequencies
+against the original C output, with maximum absolute/relative differences.
+**Evaluate this comparison on the full real APE spectra before replacing the
+current production handoff.** The test with a deliberately non-logarithmic
+three/five-bin grid illustrates possible differences, not a demonstrated
+difference in the production grid.
+
+```bash
+python3 APE_equivalent_external/ape_post_lpsd/prepare_vendor_lpsd_original.py \
+  --x-psd /path/to/combined_rho_x.lpsd \
+  --y-psd /path/to/combined_rho_y.lpsd \
+  --output-dir /path/to/new/original_vendor_handoff \
+  --fs 20000 --t0 VERIFIED_T0 --t1 VERIFIED_T1 \
+  --expected-bins 5035956
+```
+
+The original converter's HDF5 files contain only `frequency` and `logPSD`,
+with original vendor metadata. Ancillary `N_avg` and `N_kernel` remain
+in source spectra; they are not copied into these HDF5 files.
+The adapter omits only optional `None` metadata attributes unsupported by
+HDF5, preserving the original frequency and PSD calculations.
+Keep X and Y separate. No vendor code was edited and the existing handoff
+was not removed. Synthetic tests: `tests/test_prepare_vendor_lpsd_original.py`.
