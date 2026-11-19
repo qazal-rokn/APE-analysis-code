@@ -104,3 +104,37 @@ Select scan bounds appropriate to this now explicitly defined
 full-band likelihood execution has been performed here. The provisional-response generator now exists, but historical optical values and absolute signal-normalization conventions must still be approved for physical coupling results.
 Configuration B stays separate; existing exploratory scripts elsewhere
 in the repository are not imported by these two modules.
+
+## Viper job order (4.2875-hour already calculated C-LPSD)
+
+From `APE_equivalent_external/` on Viper, use the existing branch and run
+`git pull`. The shared input spectra are the verified November 17 handoff
+at `/ptmp/qarokn/APE_4p28h_PSD_OriginalVendor_PostLPSD_20261117/handoff/`.
+The background job reuses these X/Y HDF5 files and creates the summed Q PSD.
+The original vendor statistics are unchanged.
+
+1. `sbatch --export=ALL ape_q_full_background_viper.sbatch` (ONLY if no equivalent background job is already running).
+2. After `background_Q.json` is complete, submit the 20-bin **5 kHz pilot**:
+   `sbatch --export=ALL,APE_LKL_MODE=pilot ape_q_likelihood_viper.sbatch`.
+   Inspect `ape_Q_likelihood_*.out`, `*.err` and the pilot's fitted \mu/\sigma
+   before scaling up. Scan bounds default to `log10(mu)=-8..8` for
+   `mu=(g/g_ref)^2`; never reuse scalar-strain bounds `-45..-32`.
+3. After approving the pilot's runtime and fitted values:
+   `bash ape_q_submit_full_viper.sh`. It computes the exact number of
+   native-grid tasks and submits bounded Slurm array waves.
+4. **Only after ALL array tasks complete:** `sbatch --export=ALL
+   ape_q_finalize_viper.sbatch`. This verifies full native-grid coverage,
+   calls the unchanged original MaxLKL combiner, original expected-UL
+   `get_upper_limits_approx` (with the vendor's 1000-point interpolation
+   strategy), and original candidate screening/cluster functions.
+
+No observed-limit code is added. The 65 Hz–8 kHz scan includes approximately
+4.8 million native frequency bins. Since each bin calls the original
+multi-seed optimizer, finishing the FULL scan in a single day cannot be
+promised without an actual measured pilot runtime and adequate Viper
+parallel resources. An unchanged four-hour data duration can be retained
+for smaller, explicitly labeled frequency-band pilot results.
+
+The physical `g` upper-limit curve is provisional until the source PSD
+calibration (0.0284 W/V versus older 0.020 W/V) and APE optical signal
+normalization are certified against the actual processed input provenance.
