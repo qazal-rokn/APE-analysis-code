@@ -95,7 +95,9 @@ def run_single_quadrature(
 
     # APE-only replacement for LIGO stats.get_beta: the previously checked
     # response is in the vendor peak_norm array, with NO numerical adjustment.
-    channel_peak_norm = (peak_norm[0] if channel == "X" else\n                         peak_norm[1] if channel == "Y" else\n                         peak_norm[0] + peak_norm[1])
+    channel_peak_norm = (peak_norm[0] if channel == "X" else
+                         peak_norm[1] if channel == "Y" else
+                         peak_norm[0] + peak_norm[1])
     peak_shape = np.ones(1, dtype=np.float64)
     rows: list[tuple[float, float, float, float, float]] = []
     skipped = 0
@@ -143,7 +145,8 @@ def run_single_quadrature(
         "vendor_functions": ["LPSDOutput", "LPSDJSONIO", "bkg_model", "calc_max_lkl", "MaxLKLIO"],
         "signal_model": "single-bin additive PSD: exp(bkg)+mu*peak_norm; peak_shape=1",
         "mu_is_signed_vendor_fit_parameter": True,
-        "joint_xy_likelihood_used": False,\n        "quadrature_psd_sum_used": channel == "Q",
+        "joint_xy_likelihood_used": False,
+        "quadrature_psd_sum_used": channel == "Q",
         "frequency_range_hz": [ana_fmin, ana_fmax],
         "start_index_within_analysis_range": start_index,
         "native_grid_indices": [start, stop],
@@ -156,7 +159,8 @@ def run_single_quadrature(
         tmp.rename(output)
         with report.open("x", encoding="utf-8") as stream:
             json.dump(provenance, stream, indent=2)
-            stream.write("\n")
+            stream.write("
+")
     except BaseException:
         tmp.unlink(missing_ok=True)
         output.unlink(missing_ok=True)
