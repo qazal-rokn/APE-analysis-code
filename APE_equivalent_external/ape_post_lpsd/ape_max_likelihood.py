@@ -90,6 +90,18 @@ def run_single_quadrature(
     if not required.issubset(table.columns):
         raise APELikelihoodError("Vendor background record has missing columns")
 
+    # Fast, exact interval lookup for ordinary non-overlapping vendor background
+    # segments. The vendor fitter can emit segments in arbitrary row order.
+    # The original first-match DataFrame rule is retained at shared boundaries
+    # and as a fallback if segments overlap unexpectedly.
+    segment_starts = table["fmin"].to_numpy(dtype=np.float64)
+    segment_ends = table["fmax"].to_numpy(dtype=np.float64)
+    order = np.argsort(segment_starts, kind="stable")
+    sorted_starts = segment_starts[order]
+    sorted_ends = segment_ends[order]
+    disjoint = (len(order) > 0 and np.all(np.diff(sorted_starts) > 0)
+                and np.all(sorted_ends[:-1] <= sorted_starts[1:]))
+
     start = int(np.searchsorted(data.freq, ana_fmin, side="left")) + start_index
     stop = int(np.searchsorted(data.freq, ana_fmax, side="left"))
     if max_frequencies is not None:
@@ -104,11 +116,23 @@ def run_single_quadrature(
     skipped = 0
     for j in range(start, stop):
         freq = float(data.freq[j])
-        match = table[(table["fmin"] <= freq) & (table["fmax"] >= freq)]
-        if len(match) == 0:
-            skipped += 1
-            continue
-        fitted = match.iloc[0]  # original vendor convention
+        if disjoint:
+            position = int(np.searchsorted(sorted_starts, freq, side="right") - 1)
+            if position < 0 or freq > sorted_ends[position]:
+                skipped += 1
+                continue
+            # Two adjacent segments may both include their shared boundary.
+            # Preserve the original DataFrame first-match convention there.
+            row_idx = int(order[position])
+            if position > 0 and freq <= sorted_ends[position - 1]:
+                row_idx = min(row_idx, int(order[position - 1]))
+            fitted = table.iloc[row_idx]
+        else:
+            match = table[(table["fmin"] <= freq) & (table["fmax"] >= freq)]
+            if len(match) == 0:
+                skipped += 1
+                continue
+            fitted = match.iloc[0]  # exact original first-match fallback
         if not (np.isfinite(fitted["chi_sqr"]) and fitted["chi_sqr"] < max_chi_sqr):
             skipped += 1
             continue
