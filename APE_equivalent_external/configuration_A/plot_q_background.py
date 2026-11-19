@@ -50,17 +50,36 @@ def main():
     df = io.get_df(io.get_label(filepath=str(source)))
     if len(df) == 0:
         raise RuntimeError("No fitted segments found")
-    # Assign each sampled frequency to the first matching original segment.
-    fitted_log = np.full(frequency.shape, np.nan)
+    # Assign sampled frequencies in O(N log M) using sorted segment boundaries.
+    # Keep the vendor's first-match convention at shared boundaries.
+    fitted_log = np.full(frequency.shape, np.nan, dtype=np.float64)
     log_f = np.log(frequency)
-    for _, segment in df.iterrows():
-        lo, hi = float(segment["fmin"]), float(segment["fmax"])
-        inside = ((frequency >= lo) & (frequency <= hi)
-                  & ~np.isfinite(fitted_log))
-        if np.any(inside):
-            knots = np.r_[np.asarray(segment["x_knots"], dtype=float),
-                          np.asarray(segment["y_knots"], dtype=float)]
-            fitted_log[inside] = bkg_model(log_f[inside], knots)
+    starts = df["fmin"].to_numpy(dtype=float)
+    ends = df["fmax"].to_numpy(dtype=float)
+    order = np.argsort(starts, kind="stable")
+    sorted_starts, sorted_ends = starts[order], ends[order]
+    # Original background segments should be ordered/non-overlapping except
+    # shared endpoints. Fail visibly rather than silently misassign overlaps.
+    if np.any(sorted_ends[:-1] > sorted_starts[1:]):
+        raise RuntimeError("Unexpected overlapping background intervals")
+    positions = np.searchsorted(sorted_starts, frequency, side="right") - 1
+    valid = positions >= 0
+    valid_indices = np.flatnonzero(valid)
+    valid[valid_indices] &= frequency[valid_indices] <= sorted_ends[positions[valid_indices]]
+    # At a shared endpoint, the original DataFrame uses the first matching row.
+    p = positions[valid]
+    fvalid = frequency[valid]
+    original_rows = order[p].copy()
+    boundary = (p > 0) & (fvalid <= sorted_ends[np.maximum(p-1, 0)])
+    original_rows[boundary] = np.minimum(original_rows[boundary], order[p[boundary]-1])
+    valid_indices = np.flatnonzero(valid)
+    for row_id in np.unique(original_rows):
+        mask = original_rows == row_id
+        chosen = valid_indices[mask]
+        seg = df.iloc[int(row_id)]
+        knots = np.r_[np.asarray(seg["x_knots"], dtype=float),
+                      np.asarray(seg["y_knots"], dtype=float)]
+        fitted_log[chosen] = bkg_model(log_f[chosen], knots)
     usable = np.isfinite(fitted_log) & np.isfinite(psd) & (psd > 0)
     if not np.all(usable):
         print(f"WARNING: {np.count_nonzero(~usable)} sampled points are not covered by valid fits")
