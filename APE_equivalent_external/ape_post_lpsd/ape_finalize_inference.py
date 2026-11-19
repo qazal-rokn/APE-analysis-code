@@ -105,7 +105,7 @@ def original_candidate_screen(data: np.ndarray, sigma_limit: float = 5.0):
 
 def original_expected_ul(data: np.ndarray, *, g_ref: float | None = None,
                          alpha_cl: float = .95, tol: float = 1e-10):
-    """Delegate original expected q_mu asymptotic solver *without alteration*.
+    """Delegate unchanged original q_mu solver with the original 1000-point lookup-table interpolation.
 
     The original solver returns sqrt(mu_UL) and its approximate uncertainty;
     it does NOT calculate a data-dependent observed upper limit. Physical
@@ -118,16 +118,31 @@ def original_expected_ul(data: np.ndarray, *, g_ref: float | None = None,
     out[:, 0] = data[:, 0]
     # Columns: frequency, vendor sqrt(mu_UL), vendor sqrt(mu) uncertainty,
     #          scaled g_UL GeV^-1, scaled vendor uncertainty GeV^-1.
-    for i, sigma in enumerate(data[:, 4]):
-        if not np.isfinite(sigma) or sigma <= 0:
-            continue  # Preserve invalid fits as NaN; do not silently smooth.
-        ul, sigma_sqrt_mu = get_upper_limits_approx(float(sigma), alpha_CL=alpha_cl, tol=tol)
-        ul, sigma_sqrt_mu = float(np.asarray(ul).item()), float(np.asarray(sigma_sqrt_mu).item())
-        if not np.isfinite(ul) or ul <= 0:
-            raise APEInferenceError('Original expected-limit function returned invalid result')
-        out[i, 1:3] = [ul, sigma_sqrt_mu]
+    # EXACT original vendor calc_upper_limit.main() numerical strategy:
+    # solve get_upper_limits_approx on 1000 log-spaced sigma points and
+    # interpolate the same two returned quantities (not 5 million minimizers).
+    from scipy.interpolate import interp1d
+    good = np.isfinite(data[:, 4]) & (data[:, 4] > 0)
+    if np.any(good):
+        sigmas = data[good, 4]
+        if float(np.min(sigmas)) == float(np.max(sigmas)):
+            ul, unc = get_upper_limits_approx(float(sigmas[0]),
+                                               alpha_CL=alpha_cl, tol=tol)
+            out[good, 1] = float(np.asarray(ul).item())
+            out[good, 2] = float(np.asarray(unc).item())
+        else:
+            x = np.geomspace(float(np.min(sigmas)), float(np.max(sigmas)), 1000)
+            y = np.empty_like(x)
+            uncertainty = np.empty_like(x)
+            for i, xi in enumerate(x):
+                ul, unc = get_upper_limits_approx(float(xi),
+                                                   alpha_CL=alpha_cl, tol=tol)
+                y[i], uncertainty[i] = (float(np.asarray(ul).item()),
+                                        float(np.asarray(unc).item()))
+            out[good, 1] = interp1d(x, y, bounds_error=True)(sigmas)
+            out[good, 2] = interp1d(x, uncertainty, bounds_error=True)(sigmas)
         if g_ref is not None:
-            out[i, 3:5] = [g_ref * ul, g_ref * sigma_sqrt_mu]
+            out[good, 3:5] = g_ref * out[good, 1:3]
     return out
 
 
