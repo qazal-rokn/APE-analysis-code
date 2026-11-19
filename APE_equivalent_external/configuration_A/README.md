@@ -104,3 +104,39 @@ Select scan bounds appropriate to this now explicitly defined
 full-band likelihood execution has been performed here. The provisional-response generator now exists, but historical optical values and absolute signal-normalization conventions must still be approved for physical coupling results.
 Configuration B stays separate; existing exploratory scripts elsewhere
 in the repository are not imported by these two modules.
+
+## 4. Upper limits from the original five-column likelihood output
+
+The existing APE inference adapter imports and reuses the **unchanged
+vendor** `get_upper_limits_approx()` for the 95% median **expected** limit.
+The upstream program has **no observed-limit function**. To avoid
+misrepresenting this, Configuration A now includes an explicitly labeled
+APE-only **observed asymptotic** calculation. It uses the original vendor
+signed best fit `mu_hat` and Fisher `sigma`, and the same asymptotic
+`q_mu` CDF convention:
+
+```
+mu_UL,observed = max(0, mu_hat + Phi^{-1}(0.95)*sigma)
+g_UL,observed  = g_ref*sqrt(mu_UL,observed)
+```
+
+A strongly negative `mu_hat` that gives no positive Wald upper bound
+is flagged with `zero_boundary_flag=1`. The observed result is an
+**asymptotic approximation, not a complete profile-likelihood inversion or
+a function copied from the upstream code**. Its confidence coverage has
+not been calibrated for APE.
+
+After the Q likelihood produces a five-column `likelihood_Q.npy` and
+a sidecar `likelihood_Q.json`, run:
+
+```bash
+python -m configuration_A.run limits \
+  --maxlkl-npy /work/combined_Q/likelihood_Q.npy \
+  --step4-manifest-json /work/combined_Q/likelihood_Q.json \
+  --output-prefix /work/combined_Q/ape_Q
+```
+
+Outputs: `ape_Q_expected_ul.csv` (unchanged vendor helper),
+`ape_Q_observed_ul_asymptotic.csv` (new APE-only approximation),
+`ape_Q_screened_candidates.csv` (vendor-style screening), and
+`ape_Q_analysis_status.json` (provenance). No vendor files changed.
