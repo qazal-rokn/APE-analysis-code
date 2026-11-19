@@ -1,4 +1,4 @@
-"""Minimal APE-only candidate screening, expected and observed upper-limit bridge.
+"""Minimal APE-only candidate screening and median-expected upper-limit bridge.
 
 Original vendor code is imported and called unchanged:
 - LPSDIO.MaxLKLIO
@@ -6,8 +6,7 @@ Original vendor code is imported and called unchanged:
 - lvk.calc_upper_limit.get_upper_limits_approx
 
 The original LIGO main() scripts are NOT invoked: they require H1/L1 and
-LIGO strain transfer functions. The observed limit is a NEW APE-only
-asymptotic Wald/q_mu adapter: no observed-limit solver exists in vendor code.
+LIGO strain transfer functions. No new likelihood, statistics or optical model.
 
 Results are SOFTWARE-DIAGNOSTIC ONLY until the APE optical response, native-C
 kernel, halo and statistical coverage have been independently validated.
@@ -132,45 +131,15 @@ def original_expected_ul(data: np.ndarray, *, g_ref: float | None = None,
     return out
 
 
-def observed_ul_asymptotic(data: np.ndarray, *, g_ref: float | None = None,
-                           alpha_cl: float = .95):
-    """Observed ONE-SIDED Wald/q_mu upper bound, not an original vendor function.
-
-    Uses the signed original-vendor mu_hat and Fisher sigma. For a positive
-    tested mu, the unchanged vendor cumf_q_mu_scalar implies
-    p_mu = 1 - Phi((mu - mu_hat)/sigma). Thus the observed bound is
-    mu_hat + Phi^{-1}(alpha_cl)*sigma. This is an asymptotic approximation,
-    NOT a profile-likelihood inversion or an empirically calibrated limit.
-    For sufficiently negative mu_hat no positive solution exists: report
-    mu_UL=0 and flag that boundary in the output/status.
-    """
-    if not (np.isfinite(alpha_cl) and 0 < alpha_cl < 1):
-        raise APEInferenceError('Invalid observed confidence level')
-    if data.ndim != 2 or data.shape[1] != 5:
-        raise APEInferenceError('Expected original 5-column MaxLKLIO data')
-    output = np.full((len(data), 5), np.nan, dtype=np.float64)
-    output[:, 0] = data[:, 0]
-    mu_hat, sigma = data[:, 3], data[:, 4]
-    good = np.isfinite(mu_hat) & np.isfinite(sigma) & (sigma > 0)
-    nominal_mu = mu_hat[good] + norm.ppf(alpha_cl) * sigma[good]
-    upper_mu = np.maximum(nominal_mu, 0.0)
-    output[good, 1] = upper_mu
-    output[good, 2] = np.sqrt(upper_mu)
-    output[good, 3] = (nominal_mu <= 0).astype(float)
-    if g_ref is not None:
-        output[good, 4] = g_ref * np.sqrt(upper_mu)
-    return output
-
-
 def finalize_single_quadrature(maxlkl_path: str | Path, step4_manifest_json: str | Path,
                                output_prefix: str | Path, *, sigma_limit: float = 5.,
                                alpha_cl: float = .95, tol: float = 1e-10):
-    """Produce screening, original expected limit and NEW observed Wald limit."""
+    """Produce APE-only provisional screening and vendor expected-limit files."""
     maxlkl = Path(maxlkl_path).expanduser().resolve()
     manifest = Path(step4_manifest_json).expanduser().resolve()
     prefix = Path(output_prefix).expanduser().resolve()
     targets = [Path(str(prefix) + suffix) for suffix in
-               ('_screened_candidates.csv', '_expected_ul.csv', '_analysis_status.json', '_observed_ul_asymptotic.csv')]
+               ('_screened_candidates.csv', '_expected_ul.csv', '_analysis_status.json')]
     if any(path.exists() for path in targets):
         raise APEInferenceError('Refusing to overwrite candidate/upper-limit output')
     if not prefix.parent.is_dir():
@@ -178,9 +147,8 @@ def finalize_single_quadrature(maxlkl_path: str | Path, step4_manifest_json: str
     data, step4, g_ref = _read_validated_inputs(maxlkl, manifest)
     candidates, screen_details = original_candidate_screen(data, sigma_limit)
     limits = original_expected_ul(data, g_ref=g_ref, alpha_cl=alpha_cl, tol=tol)
-    observed = observed_ul_asymptotic(data, g_ref=g_ref, alpha_cl=alpha_cl)
     status = {
-        'analysis': 'APE single-bin original-vendor-likelihood SOFTWARE DIAGNOSTIC',
+        'analysis': 'APE separate-quadrature, single-bin original-vendor-statistics SOFTWARE DIAGNOSTIC',
         'channel': step4['channel'],
         'maxlkl_file_sha256': _hash(maxlkl),
         'step4_manifest_sha256': _hash(manifest),
@@ -189,10 +157,7 @@ def finalize_single_quadrature(maxlkl_path: str | Path, step4_manifest_json: str
         'candidate_screening': screen_details,
         'upper_limit_type': 'median EXPECTED asymptotic upper limit, original get_upper_limits_approx',
         'upper_limit_confidence_level_nominal': float(alpha_cl),
-        'observed_upper_limit_calculated': True,
-        'observed_upper_limit_method': 'NEW APE-only one-sided Wald/q_mu asymptotic approximation, NOT vendor observed-limit code',
-        'observed_upper_limit_zero_boundary_bins': int(np.nansum(observed[:, 3])),
-        'observed_upper_limit_valid_bins': int(np.isfinite(observed[:, 1]).sum()),
+        'observed_upper_limit_calculated': False,
         'physics_validated': False,
         'statistical_coverage_validated_for_APE': False,
         'LIGO_detector_consistency_checks_applied': False,
@@ -203,8 +168,6 @@ def finalize_single_quadrature(maxlkl_path: str | Path, step4_manifest_json: str
                    header='frequency_Hz,q0_vendor,signed_mu_hat,sqrt_mu_cluster', fmt='%.17g')
         np.savetxt(targets[1], limits, delimiter=',', comments='# ',
                    header='frequency_Hz,vendor_sqrt_mu_UL,vendor_sqrt_mu_uncertainty,g_reference_scaled_UL_GeV-1,g_reference_scaled_uncertainty_GeV-1', fmt='%.17g')
-        np.savetxt(targets[3], observed, delimiter=',', comments='# ',
-                   header='frequency_Hz,observed_mu_UL_asymptotic,observed_sqrt_mu_UL_asymptotic,zero_boundary_flag,observed_g_UL_GeV-1', fmt='%.17g')
         with targets[2].open('x', encoding='utf-8') as stream:
             json.dump(status, stream, indent=2)
             stream.write('\n')
