@@ -54,8 +54,8 @@ def run_single_quadrature(
     spectral rebinning, new optimization, or physical coupling conversion.
     Output is original 5-column MaxLKLIO format: f, lnL0, lnLmax, mu, sigma.
     """
-    if channel not in ("X", "Y"):
-        raise APELikelihoodError("Specify one quadrature: X or Y")
+    if channel not in ("X", "Y", "Q"):
+        raise APELikelihoodError("Specify one APE PSD: X, Y or phase-independent sum Q")
     spectrum = Path(spectrum_path).expanduser().resolve()
     background = Path(background_json).expanduser().resolve()
     response = Path(response_npz).expanduser().resolve()
@@ -95,7 +95,7 @@ def run_single_quadrature(
 
     # APE-only replacement for LIGO stats.get_beta: the previously checked
     # response is in the vendor peak_norm array, with NO numerical adjustment.
-    channel_peak_norm = peak_norm[0 if channel == "X" else 1]
+    channel_peak_norm = (peak_norm[0] if channel == "X" else\n                         peak_norm[1] if channel == "Y" else\n                         peak_norm[0] + peak_norm[1])
     peak_shape = np.ones(1, dtype=np.float64)
     rows: list[tuple[float, float, float, float, float]] = []
     skipped = 0
@@ -143,7 +143,7 @@ def run_single_quadrature(
         "vendor_functions": ["LPSDOutput", "LPSDJSONIO", "bkg_model", "calc_max_lkl", "MaxLKLIO"],
         "signal_model": "single-bin additive PSD: exp(bkg)+mu*peak_norm; peak_shape=1",
         "mu_is_signed_vendor_fit_parameter": True,
-        "joint_xy_likelihood_used": False,
+        "joint_xy_likelihood_used": False,\n        "quadrature_psd_sum_used": channel == "Q",
         "frequency_range_hz": [ana_fmin, ana_fmax],
         "start_index_within_analysis_range": start_index,
         "native_grid_indices": [start, stop],
@@ -170,7 +170,7 @@ def main() -> None:
     p.add_argument("--background-json", required=True)
     p.add_argument("--response-npz", required=True)
     p.add_argument("--output-npy", required=True)
-    p.add_argument("--channel", required=True, choices=("X", "Y"))
+    p.add_argument("--channel", required=True, choices=("X", "Y", "Q"))
     p.add_argument("--ana-fmin", required=True, type=float)
     p.add_argument("--ana-fmax", required=True, type=float)
     p.add_argument("--min-log10mu", required=True, type=int)
