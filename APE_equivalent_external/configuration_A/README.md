@@ -1,3 +1,75 @@
+# CURRENT CONFIGURATION A: SUM X/Y PSD BEFORE BACKGROUND FIT
+
+**This branch supersedes the previous separate-X/Y Configuration A workflow.**
+The README below includes historical single-quadrature notes; for the NEW
+combined-channel analysis use the commands in this section, not the
+old X/Y fit commands.
+
+For two calibrated orthogonal lock-in quadratures, the chosen observable is
+`PSD_Q = PSD_X + PSD_Y` in **linear one-sided PSD units**. Not
+`logPSD_X + logPSD_Y`, not summing previous fitted background JSON files,
+and not mixing raw X/Y phase samples. The native C spectra and original C
+algorithm are unchanged. APE-only code combines two HDF5 *power spectra*
+before fitting.
+
+**Important:** the existing X and Y fitted backgrounds are NOT valid for
+the summed Q spectrum. Refit Q with the UNMODIFIED vendor fitter. The
+skew-normal residual fit can differ substantially from the two older fits.
+
+## Combined workflow
+
+From `APE_equivalent_external/`, using the two already produced native-C
+handoff files:
+
+```bash
+python -m configuration_A.combine_quadrature_psd \
+  --x-h5 /work/APE_0_15435_X.h5 \
+  --y-h5 /work/APE_0_15435_Y.h5 \
+  --output-dir /work/combined_Q
+```
+
+This produces `/work/combined_Q/APE_0_15435_Q.h5` with exact native C
+frequencies, linear summed PSD, `log(PSD_X+PSD_Y)` and unchanged estimator
+averaging metadata. The code requires exact native-grid, observation segment,
+and C-LPSD averaging compatibility.
+
+Fit that NEW spectrum using ORIGINAL vendor background fitting:
+
+```bash
+python -m scalar_dark_matter_lpsd.lvk.fit_background \
+  --data-path /work/combined_Q/APE_0_15435_Q.h5 \
+  --output-path /work/combined_Q/background_Q.json \
+  --ana-fmin 65 --ana-fmax 8000
+```
+
+Provide the `peak_norm_x` and `peak_norm_y` measured/calculated with the
+same calibrated quadrature definitions. The APE likelihood adapter now uses
+`peak_norm_Q = peak_norm_x + peak_norm_y`, and calls the exact original
+vendor `calc_max_lkl` for `peak_shape=[1]`.
+
+```bash
+python -m configuration_A.run \
+  --spectrum /work/combined_Q/APE_0_15435_Q.h5 \
+  --background-json /work/combined_Q/background_Q.json \
+  --response-npz /work/ape_A_response.npz \
+  --output-npy /work/combined_Q/ape_Q_mle.npy \
+  --channel Q --ana-fmin 65 --ana-fmax 8000 \
+  --min-log10mu MIN_VALIDATED_EXP --max-log10mu MAX_VALIDATED_EXP
+```
+
+The example data paths and mu scan bounds must be replaced with real approved
+files/settings. The signal response calibration and statistical coverage
+are **not yet certified**. This is an implementation, not a report of a
+completed real 5-million-bin refit or a valid coupling upper limit.
+
+Only APE adapter files changed for Q support: `ape_max_likelihood.py`,
+`ape_combine_parts.py`, and `ape_finalize_inference.py`. No vendor source
+file changed. Configuration B remains excluded. After fitting the new Q
+background, test skew-normal fit quality and injection recovery for the
+summed observable; old X/Y residual distributions cannot be reused.
+
+---
+
 # Configuration A: ORIGINAL vendor single-bin likelihood for APE
 
 **Status: IMPLEMENTED AS A SOURCE-PRESERVING ADAPTER; PHYSICAL RESPONSE NOT YET CERTIFIED.**
