@@ -23,4 +23,6 @@ echo "Starting fast single-bin analytic diagnostic; original vendor jobs untouch
   --response-npz "$DIR/ape_Q_response.npz" \
   --pilot-npy "$DIR/likelihood/pilot/pilot_000000_result.npy" \
   --output-npy "$DIR/likelihood/fast_diagnostic/Q_full_analytic_diagnostic.npy"
-echo "Analytic diagnostic completed"
+echo "Analytic diagnostic passed vendor-pilot gate, deriving preliminary expected upper limit"
+/usr/bin/time -p "$PY" -u -m configuration_A.fast_q_diagnostic_expected
+echo "Provisional analytic diagnostic and expected UL completed"
