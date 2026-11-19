@@ -40,10 +40,11 @@ elif [[ "$MODE" == "full" ]]; then
   [[ -s "$RESP" ]] || { echo "Generate response by successful pilot first" >&2; exit 2; }
   [[ -v SLURM_ARRAY_TASK_ID ]] || { echo "Full mode requires a Slurm array index" >&2; exit 2; }
   CHUNK="${APE_CHUNK_SIZE:-1000}"
-  START=$((SLURM_ARRAY_TASK_ID * CHUNK))
+  TASK_INDEX=$(( ${APE_START_TASK:-0} + SLURM_ARRAY_TASK_ID ))
+  START=$((TASK_INDEX * CHUNK))
   COUNT="$CHUNK"
   mkdir -p "$DIR/likelihood/parts"
-  printf -v TASK '%06d' "$SLURM_ARRAY_TASK_ID"
+  printf -v TASK '%06d' "$TASK_INDEX"
   OUTPUT="$DIR/likelihood/parts/Q_${TASK}_result.npy"
 else
   echo "APE_LKL_MODE must be pilot or full" >&2; exit 2
