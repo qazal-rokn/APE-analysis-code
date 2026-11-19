@@ -43,7 +43,7 @@ def _read_validated_inputs(maxlkl_path: Path, provenance_path: Path):
         raise APEInferenceError('Step-4 MaxLKLIO output and sidecar JSON required')
     with provenance_path.open(encoding='utf-8') as stream:
         provenance = json.load(stream)
-    if not isinstance(provenance, dict) or provenance.get('channel') not in ('X', 'Y'):
+    if not isinstance(provenance, dict) or provenance.get('channel') not in ('X', 'Y', 'Q'):
         raise APEInferenceError('Step-4 sidecar must declare APE channel X or Y')
     if provenance.get('joint_xy_likelihood_used') is not False:
         raise APEInferenceError('Joint X/Y likelihood not approved')
