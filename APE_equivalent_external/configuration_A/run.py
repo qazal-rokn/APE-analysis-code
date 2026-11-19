@@ -14,7 +14,6 @@ import sys
 from configuration_A.combine_quadrature_psd import combine_psd_hdf5
 from ape_post_lpsd.ape_max_likelihood import run_single_quadrature
 from ape_post_lpsd.ape_signal_response import save_ape_q_response
-from ape_post_lpsd.ape_finalize_inference import finalize_single_quadrature
 
 
 def main():
@@ -51,13 +50,6 @@ def main():
     lkl.add_argument("--max-log10mu", required=True, type=int)
     lkl.add_argument("--start-index", type=int, default=0)
     lkl.add_argument("--max-frequencies", type=int)
-    limits = commands.add_parser("limits", help="Original expected UL plus explicitly NEW observed asymptotic UL")
-    limits.add_argument("--maxlkl-npy", required=True)
-    limits.add_argument("--step4-manifest-json", required=True)
-    limits.add_argument("--output-prefix", required=True)
-    limits.add_argument("--alpha-cl", type=float, default=.95)
-    limits.add_argument("--sigma-limit", type=float, default=5.0)
-
     args = parser.parse_args()
 
     if args.step == "background":
@@ -94,11 +86,6 @@ def main():
             unit_conversion=args.unit_conversion,
             reference_coupling_gev_inv=args.reference_coupling_gev_inv,
         )
-        print(json.dumps(result, indent=2))
-    elif args.step == "limits":
-        result = finalize_single_quadrature(
-            args.maxlkl_npy, args.step4_manifest_json, args.output_prefix,
-            sigma_limit=args.sigma_limit, alpha_cl=args.alpha_cl)
         print(json.dumps(result, indent=2))
     else:
         if not Path(args.spectrum).name.endswith("_Q.h5"):
