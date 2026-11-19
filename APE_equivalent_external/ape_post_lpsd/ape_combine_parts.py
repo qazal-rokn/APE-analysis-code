@@ -48,7 +48,7 @@ def combine_ape_parts(results_dir: str | Path, prefix: str, output_npy: str | Pa
             raise APECombineError(f'Missing Step-4 manifest for {part.name}')
         with sibling.open(encoding='utf-8') as f:
             manifest = json.load(f)
-        if manifest.get('channel') not in ('X','Y') or manifest.get('joint_xy_likelihood_used') is not False:
+        if manifest.get('channel') not in ('X','Y','Q') or manifest.get('joint_xy_likelihood_used') is not False:
             raise APECombineError('Only separate APE X/Y MLE parts may be combined')
         indices = manifest.get('native_grid_indices')
         if (not isinstance(indices, list) or len(indices) != 2 or
