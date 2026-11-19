@@ -159,8 +159,7 @@ def run_single_quadrature(
         tmp.rename(output)
         with report.open("x", encoding="utf-8") as stream:
             json.dump(provenance, stream, indent=2)
-            stream.write("
-")
+            stream.write("\n")
     except BaseException:
         tmp.unlink(missing_ok=True)
         output.unlink(missing_ok=True)
