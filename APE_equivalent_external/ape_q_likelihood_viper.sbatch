@@ -28,6 +28,8 @@ MODE="${APE_LKL_MODE:-pilot}"
 FMIN="${APE_FMIN:-65}"; FMAX="${APE_FMAX:-8000}"
 MINMU="${APE_MIN_LOG10MU:--8}"; MAXMU="${APE_MAX_LOG10MU:-8}"
 if [[ "$MODE" == "pilot" ]]; then
+  # Representative native-grid pilot near 5 kHz, not the low-frequency edge.
+  FMIN="${APE_PILOT_FMIN:-5000}"; FMAX="${APE_PILOT_FMAX:-5050}"
   if [[ ! -s "$RESP" ]]; then
     "$PY" -m configuration_A.run response --spectrum "$Q" --output-npz "$RESP" \
       --finesse-s "${APE_FINESSE_S:-1500}" --tau-s 2.5e-9 --tau1-s 1.0e-8
