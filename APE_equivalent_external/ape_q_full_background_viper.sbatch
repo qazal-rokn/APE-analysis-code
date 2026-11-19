@@ -29,20 +29,28 @@ OUT="${APE_OUTPUT_DIR:-/ptmp/qarokn/APE_Q_FULL_BACKGROUND_20261119}"
 T0="${APE_T0:-0}"; T1="${APE_T1:-15435}"
 FS="${APE_FS:-20000}"
 FMIN="${APE_FMIN:-65}"; FMAX="${APE_FMAX:-8000}"
-[[ -s "$X" && -s "$Y" ]] || { echo "Missing X/Y input files; set APE_X_PSD and APE_Y_PSD" >&2; exit 2; }
 HANDOFF="$OUT/input_handoff"
 QDIR="$OUT/combined_Q"
 mkdir -p "$HANDOFF" "$QDIR"
 XH="$HANDOFF/APE_${T0}_${T1}_X.h5"
 YH="$HANDOFF/APE_${T0}_${T1}_Y.h5"
+EXISTING_HANDOFF="${APE_EXISTING_HANDOFF:-/ptmp/qarokn/APE_4p28h_PSD_OriginalVendor_PostLPSD_20261117/handoff}"
+OLD_X="$EXISTING_HANDOFF/APE_${T0}_${T1}_X.h5"
+OLD_Y="$EXISTING_HANDOFF/APE_${T0}_${T1}_Y.h5"
 QH="$QDIR/APE_${T0}_${T1}_Q.h5"
 BKG="$QDIR/background_Q.json"
 
-if [[ -s "$XH" && -s "$YH" ]]; then
+# Prefer the previously verified four-hour original-vendor HDF5 handoff,
+# avoiding a redundant PSD read or dependence on guessed raw C output paths.
+if [[ -s "$OLD_X" && -s "$OLD_Y" ]]; then
+  XH="$OLD_X"; YH="$OLD_Y"
+  echo "Reusing prior successful four-hour X/Y HDF5 files at $EXISTING_HANDOFF"
+elif [[ -s "$XH" && -s "$YH" ]]; then
   echo "Using staged X/Y HDF5 inputs"
 elif [[ -e "$XH" || -e "$YH" ]]; then
   echo "Incomplete HDF5 handoff; refusing to overwrite" >&2; exit 3
 else
+  [[ -s "$X" && -s "$Y" ]] || { echo "Missing existing HDF5 handoff AND C-LPSD input files" >&2; exit 2; }
   "$PY" -m ape_post_lpsd.prepare_vendor_lpsd \
     --x-psd "$X" --y-psd "$Y" --output-dir "$HANDOFF" \
     --fs "$FS" --t0 "$T0" --t1 "$T1" --expected-bins 5035956
