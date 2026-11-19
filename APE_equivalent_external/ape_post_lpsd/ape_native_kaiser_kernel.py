@@ -17,6 +17,7 @@ import json
 from pathlib import Path
 import numpy as np
 import h5py
+from functools import lru_cache
 from numpy.polynomial.legendre import leggauss
 
 
@@ -34,6 +35,21 @@ def native_lengths(frequencies, fs, fmin, fmax, jdes):
     return m, L
 
 
+@lru_cache(maxsize=16)
+def _cached_kaiser_parameters(psll):
+    """One-time quadrature normalization per Kaiser PSLL per worker process.
+
+    Numerically identical to the formerly repeated leggauss(300) calculation.
+    Makes a dense native mass scan practical without changing the PSD kernel.
+    """
+    alpha = kaiser_alpha(psll)
+    nodes, weights = leggauss(300)
+    denom = np.i0(np.pi * alpha)
+    w = np.i0(np.pi * alpha * np.sqrt(np.maximum(0, 1 - nodes**2))) / denom
+    mean_w2 = 0.5 * np.dot(weights, w * w)
+    return alpha, denom, mean_w2
+
+
 def model_kernel(output_frequencies, mode_frequencies, *, fs, fmin, fmax, jdes, psll=238.13):
     """Return K [native-output bins, supplied input modes], no bin renormalization."""
     f = np.asarray(output_frequencies, np.float64)
@@ -47,11 +63,7 @@ def model_kernel(output_frequencies, mode_frequencies, *, fs, fmin, fmax, jdes, 
         raise ValueError('Unsupported Kaiser PSLL')
     m, L = native_lengths(f, fs, fmin, fmax, jdes)
     eff = fs * m / L
-    alpha = kaiser_alpha(psll)
-    nodes, weights = leggauss(300)
-    denom = np.i0(np.pi * alpha)
-    w = np.i0(np.pi * alpha * np.sqrt(np.maximum(0, 1 - nodes**2))) / denom
-    mean_w2 = 0.5 * np.dot(weights, w * w)
+    alpha, denom, mean_w2 = _cached_kaiser_parameters(float(psll))
     u = (L[:, None] / fs) * (modes[None, :] - eff[:, None])
     d = alpha * alpha - u * u
     ft = np.empty_like(d)
