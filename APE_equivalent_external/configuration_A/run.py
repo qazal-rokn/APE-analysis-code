@@ -13,6 +13,7 @@ import sys
 
 from configuration_A.combine_quadrature_psd import combine_psd_hdf5
 from ape_post_lpsd.ape_max_likelihood import run_single_quadrature
+from ape_post_lpsd.ape_signal_response import save_ape_q_response
 
 
 def main():
@@ -27,6 +28,16 @@ def main():
     bkg.add_argument("--ana-fmax", required=True, type=float)
     bkg.add_argument("--n-processes", type=int)
     bkg.add_argument("--segment-size", type=int)
+
+    response = commands.add_parser("response", help="APE Q beta from existing two-QWP response and ORIGINAL scalar linewidth")
+    response.add_argument("--spectrum", required=True)
+    response.add_argument("--output-npz", required=True)
+    response.add_argument("--finesse-s", type=float, default=1500.0)
+    response.add_argument("--tau-s", type=float, default=2.5e-9)
+    response.add_argument("--tau1-s", type=float, default=1.0e-8)
+    response.add_argument("--rho-dm-gev4", type=float, default=3.1e-42)
+    response.add_argument("--unit-conversion", type=float, default=1.519e24)
+    response.add_argument("--reference-coupling-gev-inv", type=float, default=1e-10)
 
     lkl = commands.add_parser("likelihood", help="Fit summed Q spectrum using ORIGINAL vendor optimizer")
     lkl.add_argument("--spectrum", required=True)
@@ -67,6 +78,15 @@ def main():
         print(json.dumps({"combined_psd":combined["output_file"],
                           "background_json":str(outdir / "background_Q.json"),
                           "vendor_background_command":command}, indent=2))
+    elif args.step == "response":
+        result = save_ape_q_response(
+            args.spectrum, args.output_npz,
+            finesse_s=args.finesse_s, tau_s=args.tau_s,
+            tau1_s=args.tau1_s, rho_dm_gev4=args.rho_dm_gev4,
+            unit_conversion=args.unit_conversion,
+            reference_coupling_gev_inv=args.reference_coupling_gev_inv,
+        )
+        print(json.dumps(result, indent=2))
     else:
         if not Path(args.spectrum).name.endswith("_Q.h5"):
             parser.error("Configuration A likelihood requires the summed Q spectrum")
