@@ -1,7 +1,7 @@
 """Minimal APE-only bridge into the UNCHANGED external likelihood optimizer.
 
-Uses separately calibrated APE signal-power response; never calls LIGO get_beta.
-Analyzes one quadrature at a time until X/Y noise independence is established.
+Uses APE signal-power response in place of LIGO get_beta().
+The production Config A entry point analyzes only the summed Q PSD.
 Single-bin spectral template only in this validation stage (peak_shape=[1]).
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ from scalar_dark_matter_lpsd.LPSDIO import LPSDOutput, LPSDJSONIO, MaxLKLIO
 from scalar_dark_matter_lpsd.lvk.fit_background import bkg_model
 from scalar_dark_matter_lpsd.lvk.max_lkl_executable import calc_max_lkl
 
-from ape_post_lpsd.ape_signal_response import load_peak_norm
+from ape_post_lpsd.ape_signal_response import load_peak_norm, load_peak_norm_q
 
 
 class APELikelihoodError(ValueError):
@@ -77,7 +77,11 @@ def run_single_quadrature(
         raise APELikelihoodError("start_index must be a nonnegative integer")
 
     data = LPSDOutput(str(spectrum))  # unchanged vendor reader
-    peak_norm, metadata = load_peak_norm(response, data.freq)
+    if channel == "Q":
+        channel_peak_norm, metadata = load_peak_norm_q(response, data.freq)
+    else:
+        peak_norm, metadata = load_peak_norm(response, data.freq)
+        channel_peak_norm = peak_norm[0 if channel == "X" else 1]
     background_data = LPSDJSONIO(str(background))
     label = background_data.get_label(filepath=str(spectrum))
     table = background_data.get_df(label)
@@ -95,9 +99,6 @@ def run_single_quadrature(
 
     # APE-only replacement for LIGO stats.get_beta: the previously checked
     # response is in the vendor peak_norm array, with NO numerical adjustment.
-    channel_peak_norm = (peak_norm[0] if channel == "X" else
-                         peak_norm[1] if channel == "Y" else
-                         peak_norm[0] + peak_norm[1])
     peak_shape = np.ones(1, dtype=np.float64)
     rows: list[tuple[float, float, float, float, float]] = []
     skipped = 0
@@ -134,7 +135,7 @@ def run_single_quadrature(
     output.parent.mkdir(parents=True, exist_ok=True)
     result = MaxLKLIO(data=np.asarray(rows, dtype=np.float64))
     provenance = {
-        "status": "CONDITIONAL: supplied APE power-response physics and X/Y independence are not certified",
+        "status": "CONDITIONAL: APE response uses provisional working QWP parameters",
         "channel": channel,
         "source_spectrum": str(spectrum),
         "source_background": str(background),
