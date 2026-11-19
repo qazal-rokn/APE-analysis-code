@@ -1,5 +1,28 @@
 # CURRENT CONFIGURATION A: SUM X/Y PSD BEFORE BACKGROUND FIT
 
+## Single command: combined PSD and ORIGINAL background fit
+
+From `APE_equivalent_external/` run:
+
+```bash
+python -m configuration_A.prepare_background \
+  --x-h5 /work/APE_0_15435_X.h5 \
+  --y-h5 /work/APE_0_15435_Y.h5 \
+  --output-dir /work/combined_Q \
+  --ana-fmin 65 --ana-fmax 8000 \
+  --n-processes 4 --segment-size 1000
+```
+
+This executes the **original** `scalar_dark_matter_lpsd.lvk.fit_background`
+only **after** summing X/Y linear PSD into a new `APE_0_15435_Q.h5`.
+It creates `background_Q.json` for the original vendor likelihood.
+Inputs and all previous X/Y fits stay untouched. If existing output files
+are present it refuses to overwrite. The example values for parallelism
+and frequency range should match the actual production run configuration.
+This command has been added to source; it has not yet run against Viper files.
+
+
+
 **This branch supersedes the previous separate-X/Y Configuration A workflow.**
 The README below includes historical single-quadrature notes; for the NEW
 combined-channel analysis use the commands in this section, not the
