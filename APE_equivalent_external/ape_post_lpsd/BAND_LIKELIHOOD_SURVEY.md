@@ -79,3 +79,37 @@ PYTHONPATH="$PWD" /ptmp/qarokn/ape-python-venv-20261023/bin/python \
   --count 64 --fmin 65.1 --fmax 8000 \
   --start-index 2 --stop-index 8
 ```
+
+## Cross-segment backgrounds (88.358478 Hz)
+
+The pilot scan detected that the original 81-bin native-frequency template
+may straddle a fitted-background segment boundary. Previously the APE wrapper
+required one segment to cover the whole frequency window and aborted.
+
+The APE adapter now **retains all bins** and assigns each its correct original
+vendor-fitted spline and skew-normal parameters. In a single-segment window
+it preserves the original one-row layout; at a boundary it reshapes all bins
+into 81 one-bin rows, using the same signal amplitude `mu` for every row.
+This calls the original vendor `calc_max_lkl` and `stats.log_likelihood`
+unchanged and preserves the halo PSD, spectrum normalization and native grid.
+It rejects uncovered bins, ambiguous interior overlap, and chi-square failures.
+The original vendor source is not modified. Like all other pilot results, the
+overlapping-bin composite likelihood is NOT statistically calibrated.
+
+The 88.358478 Hz failure has existing `halo.npz` and `qwp.npz` inputs,
+which the resumable scan will reuse. Run the integrated tests before retrying:
+
+```bash
+cd /ptmp/qarokn/APE-analysis-code
+git pull --ff-only
+cd APE_equivalent_external
+PY=/ptmp/qarokn/ape-python-venv-20261023/bin/python
+ROOT=/ptmp/qarokn/APE_4p28h_PSD_OriginalVendor_PostLPSD_20261117
+PYTHONPATH="$PWD" "$PY" -m unittest discover -s ape_post_lpsd/tests \
+  -p 'test_ape_segmented_vendor_background.py' -v
+PYTHONPATH="$PWD" "$PY" -m ape_post_lpsd.ape_band_likelihood_scan \
+  --root "$ROOT" --output-dir "$ROOT/diagnostics/ape_band_survey_64" \
+  --count 64 --fmin 65.1 --fmax 8000 --start-index 4 --stop-index 12
+```
+
+This preserves the scan manifest/hash and avoids recomputing completed points.

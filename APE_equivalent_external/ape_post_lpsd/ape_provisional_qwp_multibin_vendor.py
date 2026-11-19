@@ -29,6 +29,79 @@ def finite_or_none(x):
     return x if np.isfinite(x) else None
 
 
+def build_vendor_background_inputs(table, f, chi_cut):
+    """Return vendor-compatible model arrays for a window crossing spline fits.
+
+    Original vendor stats.log_likelihood supports (n_rows, n_bins_per_row);
+    here each row is one native frequency bin if multiple fitted segments are
+    present. The same physical mu is still fitted to *all* original 81 bins.
+    No bin is dropped or signal renormalized. Ambiguous interior overlaps and
+    uncovered frequencies are errors. Exact shared endpoints take the segment
+    with the greatest fmin, deterministically.
+    """
+    required = {'fmin','fmax','x_knots','y_knots',
+                'alpha_skew','loc_skew','sigma_skew','chi_sqr'}
+    if not required.issubset(table.columns):
+        raise RuntimeError('Original fitted-background columns are missing')
+    f = np.asarray(f, float)
+    if f.ndim != 1 or not np.isfinite(f).all() or np.any(np.diff(f) <= 0):
+        raise ValueError('Invalid native frequency array')
+    # Retain exact old representation where one segment covers the window.
+    eligible = table[(table['fmin'] <= f[0]) & (table['fmax'] >= f[-1])]
+    if len(eligible) == 1:
+        fit = eligible.iloc[0]
+        chi = float(fit['chi_sqr'])
+        if not np.isfinite(chi) or chi >= chi_cut:
+            raise RuntimeError(f'Original background fit chi-square {chi} fails quality cut')
+        knots = np.r_[np.asarray(fit['x_knots'],float),
+                      np.asarray(fit['y_knots'],float)]
+        logB = np.asarray(bkg_model(np.log(f), knots),float).reshape(-1)
+        pars = np.array([[fit['loc_skew'],fit['sigma_skew'],fit['alpha_skew']]],float)
+        mode = 'single_segment'
+        labels = [float(fit['fmin'])]
+        matrix = logB[None,:]
+    else:
+        table = table.sort_values(['fmin','fmax']).reset_index(drop=True)
+        lower = np.asarray(table['fmin'],float)
+        upper = np.asarray(table['fmax'],float)
+        # Searchsorted yields most recent segment start; explicitly verify its
+        # upper bound, rather than assuming that segments are contiguous.
+        owner = np.searchsorted(lower, f, side='right') - 1
+        if np.any(owner < 0) or np.any(f > upper[np.maximum(owner,0)]):
+            raise RuntimeError('Native 81-bin window has uncovered background frequencies')
+        # Reject genuinely overlapping fits; a shared endpoint is allowed.
+        for k in range(len(table)-1):
+            if lower[k+1] < upper[k] and np.any(
+                (f > lower[k+1]) & (f < upper[k])):
+                raise RuntimeError('Ambiguous overlapping background-fit intervals')
+        logB = np.empty(f.size, dtype=float)
+        pars = np.empty((f.size,3), dtype=float)
+        chis = []
+        labels = []
+        for k in np.unique(owner):
+            fit = table.iloc[int(k)]
+            chi = float(fit['chi_sqr'])
+            if not np.isfinite(chi) or chi >= chi_cut:
+                raise RuntimeError(f'Background fit at {float(fit["fmin"])} Hz fails chi-square cut')
+            indices = np.flatnonzero(owner == k)
+            knots = np.r_[np.asarray(fit['x_knots'],float),
+                          np.asarray(fit['y_knots'],float)]
+            logB[indices] = np.asarray(
+                bkg_model(np.log(f[indices]), knots),float).reshape(-1)
+            pars[indices,:] = [fit['loc_skew'],fit['sigma_skew'],fit['alpha_skew']]
+            chis.append(chi)
+            labels.append(float(fit['fmin']))
+        chi = max(chis)
+        mode = 'per_bin_segment'
+        matrix = logB[:,None]
+    if (not np.isfinite(logB).all() or not np.isfinite(pars).all()
+            or np.any(np.exp(logB) <= 0) or np.any(pars[:,1] <= 0)):
+        raise RuntimeError('Invalid background spline or skew-normal parameters')
+    return dict(logB_vector=logB, logB_matrix=matrix, pars=pars,
+                mode=mode, max_chi_square=float(chi),
+                fitted_segment_starts_hz=labels)
+
+
 def do_likelihood(root, channel, case, indices, f, T, vendor_background, seed_count, chi_cut):
     input_h5 = root / 'handoff' / f'APE_0_15435_{channel}.h5'
     if not input_h5.is_file():
@@ -49,29 +122,25 @@ def do_likelihood(root, channel, case, indices, f, T, vendor_background, seed_co
     required={'fmin','fmax','x_knots','y_knots','alpha_skew','loc_skew','sigma_skew','chi_sqr'}
     if not required.issubset(table.columns):
         raise RuntimeError(f'{channel}: missing original vendor fitted-background columns')
-    # Original vendor likelihood has one residual skew-normal parameter triple
-    # per channel, NOT different parameters for bins straddling fit segments.
-    eligible=table[(table['fmin'] <= float(f[0])) & (table['fmax'] >= float(f[-1]))]
-    if eligible.empty:
-        raise RuntimeError(f'{channel} case {case}: 81-bin region crosses original background-fit boundaries; cannot use one vendor residual model')
-    fit=eligible.iloc[0]
-    chi=float(fit['chi_sqr'])
-    if not (np.isfinite(chi) and chi < chi_cut):
-        raise RuntimeError(f'{channel} case {case}: background chi-square {chi} fails quality cut')
-    knots=np.concatenate((np.asarray(fit['x_knots'],float),np.asarray(fit['y_knots'],float)))
-    logB=np.asarray(bkg_model(np.log(f),knots),float).reshape(-1)
-    if logB.shape != f.shape:
-        raise RuntimeError(f'{channel} case {case}: incorrect spline output shape')
-    B=np.exp(logB)
-    pars=np.asarray([[fit['loc_skew'],fit['sigma_skew'],fit['alpha_skew']]],float)
-    if not np.isfinite(B).all() or np.any(B<=0) or not np.isfinite(pars).all() or pars[0,1] <= 0:
-        raise RuntimeError(f'{channel} case {case}: invalid fitted-background model')
+    # Preserve the one-row interface for the previously validated homogeneous
+    # background window. For a window straddling vendor spline-fit segments,
+    # assign each native bin to its own fitted segment and use vendor rows of
+    # length one. The original log_likelihood and calc_max_lkl are unchanged.
+    fit_inputs = build_vendor_background_inputs(table, f, chi_cut)
+    logB_matrix = fit_inputs['logB_matrix']
+    pars = fit_inputs['pars']
+    logB = fit_inputs['logB_vector']
+    B = np.exp(logB)
+    chi = fit_inputs['max_chi_square']
+    boundary_mode = fit_inputs['mode']
+    shape = (1, f.size) if boundary_mode == 'single_segment' else (f.size, 1)
+    observed = logP.reshape(shape)
 
     # All QWP/halo spectral power already resides in peak_norm = T_j.
     # Using peak_shape=ones prevents counting the halo twice. It ALSO makes
     # unchanged vendor get_valid_mu_ranges (which ignores peak_shape) valid.
-    peak_norm=T[None,:]
-    peak_shape=np.ones(f.size,float)
+    peak_norm=T.reshape(shape)
+    peak_shape=np.ones(shape[1],float)
     # Scale the ORIGINAL optimizer's signed-mu search to the signal/background
     # ratio; never use LIGO's hard-coded mu ranges for APE.
     ratio=np.min(B/T[T>0]) if np.all(T>0) else np.min((B/T)[T>0])
@@ -80,7 +149,7 @@ def do_likelihood(root, channel, case, indices, f, T, vendor_background, seed_co
     logscale=float(np.log10(ratio))
     lo=int(np.floor(logscale))-4
     hi=int(np.ceil(logscale))+3
-    fit_result=calc_max_lkl(logP[None,:],logB[None,:],pars,
+    fit_result=calc_max_lkl(observed,logB_matrix,pars,
                             peak_norm,peak_shape,
                             min_log10mu=lo,max_log10mu=hi,n_seed_lkl=seed_count)
     ll0,llmax,muhat,sigma=[finite_or_none(z) for z in fit_result]
@@ -91,6 +160,8 @@ def do_likelihood(root, channel, case, indices, f, T, vendor_background, seed_co
       'peak_native_frequency_hz':float(f[np.argmax(T)]),
       'max_template_to_background_PSD':float(np.max(T/B)),
       'fitted_background_chi_square':chi,
+      'background_mapping_mode':boundary_mode,
+      'fitted_segment_starts_hz':fit_inputs['fitted_segment_starts_hz'],
       'N_avg_at_peak':float(N[np.argmax(T)]),
       'projection_assumption':'alpha_this_channel=1 counterfactual; DO NOT combine with other channel',
       'vendor_peak_norm':'full native-bin QWP+halo T_j PSD per mu',
