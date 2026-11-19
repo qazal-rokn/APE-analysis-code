@@ -15,6 +15,8 @@ from configuration_A.build_response import (
 )
 from ape_post_lpsd.ape_signal_response import load_peak_norm
 from configuration_A.run import validate_a_response_file, ConfigurationAInputError
+from configuration_A.derive_qwp_calibration import derive_provisional_qwp_calibration
+from ape_post_lpsd.physics.qwp_signal import qwp_amplitude_per_coupling
 
 
 class TestSingleBinAPEBoundary(unittest.TestCase):
@@ -77,6 +79,25 @@ class TestSingleBinAPEBoundary(unittest.TestCase):
                 build_response_file(src, prov, out)
             with self.assertRaises(Exception):
                 load_peak_norm(out, np.array([101., 200.]))
+
+    def test_reused_qwp_model_transfers_to_single_bin_interface(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp)
+            f = np.array([100., 200.])
+            src, optics, output = (d / x for x in ("kernel.npz", "optics.json", "prepared.npz"))
+            np.savez(src, frequency_hz=f,
+                     quadrature_amplitude_projection_x=[1., 0.5],
+                     quadrature_amplitude_projection_y=[0., 0.5],
+                     c_psd_hz_inv_per_unit_variance_x=[5., 6.],
+                     c_psd_hz_inv_per_unit_variance_y=[7., 8.])
+            parameters = dict(finesse_s=1400., tau_s=1.,
+                              tau1_s=2., rho_dm_gev4=1., unit_conversion=1.)
+            optics.write_text(json.dumps(parameters), encoding="utf-8")
+            derive_provisional_qwp_calibration(src, optics, output)
+            theoretical = qwp_amplitude_per_coupling(f, **parameters)
+            with np.load(output, allow_pickle=False) as z:
+                np.testing.assert_array_equal(z["peak_rotation_rad_per_gev_inv_x"], theoretical*[1., 0.5])
+                np.testing.assert_array_equal(z["peak_rotation_rad_per_gev_inv_y"], theoretical*[0., 0.5])
 
     def test_configuration_b_response_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
