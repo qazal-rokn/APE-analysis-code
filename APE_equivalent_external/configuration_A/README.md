@@ -60,3 +60,88 @@ entry point and from Configuration A outputs.
 For full source preservation, compare files under
 `../scalar_dark_matter_lpsd` with the untouched vendor reference before
 claiming byte-for-byte parity. This branch adds no changes inside that tree.
+
+## APE-only signal-power response generator (added)
+
+The physical detector interface is now `configuration_A.build_response`.
+It does **not** reimplement the vendor likelihood or the halo line shape.
+It calculates the additive original-vendor `peak_norm` for each X/Y native bin
+from the two **externally calibrated** instrument quantities:
+
+- `R_k(f)`: measured PEAK rotation amplitude per unit axion-photon coupling,
+  incorporating the two-QWP cavity response, PEM/lock-in calibration, and
+  X/Y readout projection, in `rad / (GeV^-1)`;
+- `K_k(f)`: actual native **C method-2 D output** in `Hz^-1` per
+  unit time-domain angular variance, measured for the same bin and
+  single-bin signal-power convention (not a generic uncalibrated Kaiser
+  spectral-window function).
+
+With `mu=(g/g_ref)^2`, the only new signal term is
+
+`peak_norm_k(f) = 0.5 * [g_ref * R_k(f)]^2 * K_k(f)`
+
+and `peak_shape=[1]` remains unchanged. The 0.5 applies because the
+interface explicitly requests *peak* sinusoidal amplitude, not RMS amplitude.
+Do not supply RMS or PSD-amplitude numbers as `R` without conversion.
+
+The input `ape_calibration.npz` MUST contain the following five exact
+array names, all on the full native C-LPSD grid:
+
+```
+frequency_hz
+peak_rotation_rad_per_gev_inv_x
+peak_rotation_rad_per_gev_inv_y
+c_psd_hz_inv_per_unit_variance_x
+c_psd_hz_inv_per_unit_variance_y
+```
+
+The accompanying `ape_calibration_provenance.json` must specify
+
+```json
+{
+  "reference_coupling_gev_inv": 1e-10,
+  "response_source": "REPLACE WITH ACTUAL MEASURED APE RESPONSE",
+  "calibration_version": "REPLACE WITH ACTUAL VERSION",
+  "native_c_kernel_source": "REPLACE WITH ACTUAL NATIVE C TEST",
+  "single_bin_convention": "REPLACE WITH REVIEWED SOURCE CONVENTION",
+  "peak_amplitude_calibration_source": "REPLACE WITH ACTUAL MEASUREMENT",
+  "quadrature_projection_source": "REPLACE WITH ACTUAL CHANNEL CALIBRATION",
+  "response_status": "PROVISIONAL_NOT_VALIDATED_FOR_PHYSICAL_LIMITS"
+}
+```
+
+This JSON is a SCHEMA EXAMPLE, not a supplied physical measurement; do
+not substitute placeholder text into a science run.
+
+Run from `APE_equivalent_external/`:
+
+```bash
+python -m configuration_A.build_response \
+  --calibration-npz /work/ape_calibration.npz \
+  --provenance-json /work/ape_calibration_provenance.json \
+  --output-npz /work/ape_A_response.npz
+```
+
+Pass the generated NPZ to `python -m configuration_A.run` with the
+original C-LPSD spectrum and vendor background fit. The latter delegates
+straight to the unmodified vendor `calc_max_lkl`. For post-fit
+candidate screening and median-expected limit diagnostics, use existing
+`ape_post_lpsd.ape_finalize_inference`, which calls original vendor
+`cluster` and `get_upper_limits_approx`. It does not compute an observed
+limit or perform LIGO's H1/L1 consistency veto.
+
+The source contains **no completed numerical APE measurement or C-tone
+calibration**. A correctly shaped NPZ is not a validated coupling response.
+Until actual optical response and native PSD kernel measurements are
+provided and injection/recovery and coverage are passed, outputs remain
+CONDITIONAL diagnostics, not physical exclusion limits.
+
+### Exact source-fidelity boundary
+
+No changes have been made to `LPSD/`,
+`scalar_dark_matter_lpsd/`, the original C numerical method, or
+the vendor statistical functions. The APE-specific original data handoff,
+background-fit handling, X/Y splitting, part combining, and inferred coupling
+reporting were already implemented under `ape_post_lpsd/` and are reused.
+The new builder changes *only* the external numerical `peak_norm` input.
+Configuration B remains separate.
