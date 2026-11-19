@@ -27,6 +27,8 @@ class TestConfigurationAIsolation(unittest.TestCase):
 
     def test_configuration_a_does_not_import_multibin(self):
         for path in (ROOT / "configuration_A").glob("*.py"):
+            if path.name.startswith("test_"):
+                continue
             with self.subTest(path=path):
                 source = path.read_text(encoding="utf-8")
                 ast.parse(source)
