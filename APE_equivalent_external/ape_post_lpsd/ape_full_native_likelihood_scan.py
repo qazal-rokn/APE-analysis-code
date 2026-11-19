@@ -144,6 +144,8 @@ def fit_signed_vendor_likelihood(observed_log_psd, logB, pars, T):
                     max_T_over_B=ratio)
     if result.x>=0.99*upper:
         status="UPPER_RANGE_LIMIT"
+    if result.x<=-0.975:
+        status="LOWER_RANGE_LIMIT"
     lmax=max(l0,-float(result.fun))
     s_hat=float(result.x) if lmax>l0 else 0.
     return dict(status=status,lnL0=l0,lnLmax=lmax,
@@ -199,8 +201,19 @@ def main():
         a.halo_samples,a.halo_modes,a.seed)
     out.mkdir(parents=True,exist_ok=True)
     file=out/f"native_{a.task_id:06d}.npz"
+    settings=dict(fmin=a.fmin,fmax=a.fmax,task_bins=a.task_bins,
+        half_width_bins=a.half_width_bins,halo_samples=a.halo_samples,
+        halo_modes=a.halo_modes,halo_seed=a.seed,psll=a.psll,
+        chi_cut=a.chi_cut,optical=opt,g_ref_gev_inv=a.g_ref_gev_inv)
     if file.exists():
-        print(json.dumps(dict(status="SKIPPED_EXISTING_TASK",
+        with np.load(file,allow_pickle=False) as saved:
+            meta=json.loads(str(saved["metadata_json"].item()))
+            if (meta.get("root")!=str(root)
+                    or meta.get("settings")!=settings
+                    or meta.get("task_id")!=a.task_id
+                    or meta.get("status")!="PROVISIONAL_FULL_NATIVE_GRID_COMPOSITE_LIKELIHOOD"):
+                raise RuntimeError(f"Existing task output belongs to different scan: {file}")
+        print(json.dumps(dict(status="SKIPPED_VERIFIED_EXISTING_TASK",
                               task_id=a.task_id,path=str(file))))
         return
     begin=time.monotonic()
@@ -276,10 +289,6 @@ def main():
                 flags[k,c]=0 if z["status"]=="FINITE" else 1
             if (k+1)%1000==0:
                 print(f"task={a.task_id} {k+1}/{stop-start}",flush=True)
-        settings=dict(fmin=a.fmin,fmax=a.fmax,task_bins=a.task_bins,
-            half_width_bins=a.half_width_bins,halo_samples=a.halo_samples,
-            halo_modes=a.halo_modes,halo_seed=a.seed,psll=a.psll,
-            chi_cut=a.chi_cut,optical=opt,g_ref_gev_inv=a.g_ref_gev_inv)
         metadata=dict(status="PROVISIONAL_FULL_NATIVE_GRID_COMPOSITE_LIKELIHOOD",
             task_id=a.task_id,total_tasks=n_tasks,first_native_index=first,
             last_native_index=last,task_start=int(start),task_stop=int(stop),
