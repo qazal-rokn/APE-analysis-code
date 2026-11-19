@@ -31,6 +31,27 @@ def config_hash(masses, settings):
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
+def classify_vendor_results(cases):
+    """Classify complete, partial-sigma, and unusable vendor likelihood results.
+
+    sigma_mu may be null when unchanged vendor FinDiff errors; preserve a
+    numerically valid signed-mu fit instead of discarding it.
+    """
+    if (len(cases) != 2 or {row.get("channel") for row in cases} != {"X", "Y"}):
+        return "INVALID"
+    for row in cases:
+        result = row.get("vendor_results", {})
+        for field in ("lnL0", "lnLmax", "mu_hat"):
+            value = result.get(field)
+            if value is None or not np.isfinite(value):
+                return "INVALID"
+    return ("COMPLETE" if all(
+        row.get("vendor_results", {}).get("sigma_mu") is not None and
+        np.isfinite(row["vendor_results"]["sigma_mu"]) and
+        row["vendor_results"]["sigma_mu"] > 0 for row in cases
+    ) else "PARTIAL_SIGMA")
+
+
 def execute(script, args, env):
     subprocess.run([sys.executable, str(HERE / script), *map(str, args)],
                    check=True, cwd=str(HERE.parent), env=env)
@@ -100,7 +121,7 @@ def main():
                   "provisional fixed-velocity halo and QWP model"]),f,indent=2)
     env = os.environ.copy()
     env["PYTHONPATH"] = str(HERE.parent) + os.pathsep + env.get("PYTHONPATH","")
-    passed, failed, skipped = 0, [], 0
+    passed, partial, failed, skipped = 0, [], [], 0
     for index in range(a.start_index, stop):
         rest = float(masses[index])
         location = out/f"mass_{index:07d}"
@@ -137,10 +158,30 @@ def main():
                      "--seeds",a.seeds,"--output-json",likelihood],env)
             obj=json.loads(likelihood.read_text())
             cases=obj.get("diagnostic_cases",[])
-            if (len(cases)!=2 or {row.get("channel") for row in cases}!={"X","Y"}
-                    or any(not row.get("finite_numerical_result") for row in cases)):
-                raise RuntimeError("Vendor X/Y likelihood incomplete or nonfinite")
+            quality=classify_vendor_results(cases)
+            if quality=="INVALID":
+                raise RuntimeError("Vendor likelihood or mu_hat missing/nonfinite")
             results={row["channel"]:row["vendor_results"] for row in cases}
+            if quality=="PARTIAL_SIGMA":
+                # Do not silently replace the original vendor Fisher uncertainty.
+                # Keep the finite likelihood fit as a checkpoint for later
+                # uncertainty/coverage work, without labeling it complete.
+                info=dict(status="PROVISIONAL_PARTIAL_SIGMA_UNAVAILABLE",
+                    config_hash=sha,index=index,rest_hz=rest,
+                    X=results["X"],Y=results["Y"])
+                partial_file=location/"partial.json"
+                if partial_file.exists():
+                    old=json.loads(partial_file.read_text())
+                    if old.get("config_hash")!=sha or old.get("rest_hz")!=rest:
+                        raise RuntimeError("Existing partial checkpoint belongs to different scan")
+                else:
+                    with partial_file.open("x") as f:json.dump(info,f,indent=2)
+                (location/"error.txt").unlink(missing_ok=True)
+                partial.append(dict(index=index,f_hz=rest,
+                                    missing_sigma_channels=[row["channel"] for row in cases
+                                        if row["vendor_results"].get("sigma_mu") is None]))
+                print(f"[{index+1}/{len(masses)}] {rest:.6f} Hz PARTIAL: finite vendor likelihood, sigma missing",flush=True)
+                continue
             with marker.open("x") as f:
                 json.dump(dict(status="PROVISIONAL_NUMERICAL_ONLY",
                     config_hash=sha, index=index, rest_hz=rest,
@@ -155,7 +196,7 @@ def main():
                   file=sys.stderr,flush=True)
     report=dict(status="PROVISIONAL_SURVEY_NOT_PHYSICAL_LIMIT",
                 selected_frequencies=len(masses), processed_index_range=[a.start_index,stop],
-                passed=passed,skipped=skipped,failed=failed,output_dir=str(out))
+                passed=passed,partial=partial,skipped=skipped,failed=failed,output_dir=str(out))
     print(json.dumps(report,indent=2))
     if failed:
         raise SystemExit(1)

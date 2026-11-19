@@ -41,3 +41,41 @@ overlapping frequency bins (~0.84 lag-one correlation near 5/8 kHz).
 The pilot Kaiser PSLL=238.13 dB, optical QWP amplitude/phase and X/Y
 signal fractions, lab-frame halo and proper Monte Carlo coverage remain
 provisional. A band survey does not resolve these scientific gates.
+
+## Handling the 75.842844 Hz vendor FinDiff sigma failure
+
+On the first VIPER chunk, 65.1, 70.266415 and 81.861824 Hz passed
+X/Y. At 75.842844 Hz, the unchanged vendor optimizer returned finite
+`lnL0`, `lnLmax`, and `mu_hat` for X and Y, but its
+`stats.sigma_at_point` failed with `Spacing must be > 0` in Y.
+The APE scan wrapper now records `mass_0000002/partial.json`
+(`PROVISIONAL_PARTIAL_SIGMA_UNAVAILABLE`) and retains the existing
+likelihood fit instead of treating this as a broken axion model.
+
+`completed.json` is reserved strictly for points with both finite
+vendor likelihood fits **and positive finite sigma_mu**. A partial
+checkpoint is not counted as a complete likelihood result and is not
+permitted to become a reported upper limit. Neither original vendor
+`stats.py` nor `max_lkl_executable.py` is modified. Revisiting the
+Fisher numerical issue and correlated-bin statistical coverage is a
+separate validated work item. Failed mass-point input/output files
+remain read-only; the new wrapper consumes the original `likelihood.json`
+on resume without rerunning the C estimator, halo/QWP preparation, or
+vendor optimizer.
+
+To reclassify the existing partial point and continue with new masses:
+
+```bash
+cd /ptmp/qarokn/APE-analysis-code
+git pull --ff-only
+cd APE_equivalent_external
+ROOT=/ptmp/qarokn/APE_4p28h_PSD_OriginalVendor_PostLPSD_20261117
+PYTHONPATH="$PWD" /ptmp/qarokn/ape-python-venv-20261023/bin/python \
+  -m unittest discover -s ape_post_lpsd/tests \
+  -p 'test_ape_band_likelihood_scan.py' -v
+PYTHONPATH="$PWD" /ptmp/qarokn/ape-python-venv-20261023/bin/python \
+  -m ape_post_lpsd.ape_band_likelihood_scan \
+  --root "$ROOT" --output-dir "$ROOT/diagnostics/ape_band_survey_64" \
+  --count 64 --fmin 65.1 --fmax 8000 \
+  --start-index 2 --stop-index 8
+```
