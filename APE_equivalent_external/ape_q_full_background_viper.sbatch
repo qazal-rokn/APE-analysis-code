@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=ape-Q-full-bkg
+#SBATCH --partition=small
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=23:50:00
@@ -16,7 +17,7 @@ cd "$ROOT"
 export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
 export OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
 
-PY="${APE_PYTHON:-$(command -v python3 || command -v python)}"
+PY="${APE_PYTHON:-/ptmp/qarokn/ape-python-venv-20261023/bin/python}"
 [[ -x "$PY" ]] || { echo "Set APE_PYTHON to a working Python on Viper" >&2; exit 2; }
 "$PY" -c 'import numpy, scipy, h5py, pandas, scalar_dark_matter_lpsd' || {
   echo "Python environment missing project dependencies. Set APE_PYTHON." >&2; exit 2;
