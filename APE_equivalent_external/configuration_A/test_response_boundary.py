@@ -14,6 +14,7 @@ from configuration_A.build_response import (
     ACalibrationError, make_singlebin_peak_norm, build_response_file
 )
 from ape_post_lpsd.ape_signal_response import load_peak_norm
+from configuration_A.run import validate_a_response_file, ConfigurationAInputError
 
 
 class TestSingleBinAPEBoundary(unittest.TestCase):
@@ -71,10 +72,20 @@ class TestSingleBinAPEBoundary(unittest.TestCase):
             matrix, loaded = load_peak_norm(out, f)
             np.testing.assert_allclose(matrix, [[90., 192.], [31.5, 64.]])
             self.assertEqual(loaded["configuration"], "A_original_vendor_single_bin")
+            self.assertEqual(validate_a_response_file(out)["configuration"], "A_original_vendor_single_bin")
             with self.assertRaises(ACalibrationError):
                 build_response_file(src, prov, out)
             with self.assertRaises(Exception):
                 load_peak_norm(out, np.array([101., 200.]))
+
+    def test_configuration_b_response_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "b_response.npz"
+            np.savez(bad, frequency_hz=np.array([100., 200.]),
+                     peak_norm_x=np.ones(2), peak_norm_y=np.ones(2),
+                     metadata_json=json.dumps({"configuration": "B_multibin"}))
+            with self.assertRaises(ConfigurationAInputError):
+                validate_a_response_file(bad)
 
 
 if __name__ == "__main__":
