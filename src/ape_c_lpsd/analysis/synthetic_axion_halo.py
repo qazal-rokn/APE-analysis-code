@@ -6,7 +6,8 @@ transfer function. The QWP response is an amplitude envelope only; phase
 response remains an explicit science-validation requirement.
 
 Random independent complex Gaussian Fourier amplitudes generate a stationary
-Gaussian realization with ensemble-mean power h_k times response_k**2.
+Gaussian realization. The QWP response represents peak amplitude, so the
+ensemble-mean power per Fourier mode is 0.5*h_k*(g*response_k)**2.
 """
 from pathlib import Path
 import h5py
@@ -52,11 +53,11 @@ def inject_discrete_halo(destination, *, fs_hz, duration_s, seed,
     transfer=qwp_amplitude_per_coupling(
         f,finesse_s=finesse_s,tau_s=tau_s,tau1_s=tau1_s,
         rho_dm_gev4=rho_dm_gev4,unit_conversion=unit_conversion)
-    # CN(0,1) amplitudes: E|z|^2=1.  For Fourier conventions,
-    # a real sinusoid of RMS amplitude s has |rfft|=N*s/sqrt(2).
+    # CN(0,1) amplitudes: E|z|^2=1. For a sinusoid of PEAK amplitude A,
+    # the positive-frequency rFFT coefficient has magnitude N*A/2.
     z=(rng.normal(size=len(f))+1j*rng.normal(size=len(f)))/np.sqrt(2)
     base=np.zeros(len(grid),dtype=np.complex128)
-    base[idx]=(n/np.sqrt(2))*float(coupling_gev_inv)*transfer*np.sqrt(weights)*z
+    base[idx]=(n/2)*float(coupling_gev_inv)*transfer*np.sqrt(weights)*z
     xcoeff=base*np.sqrt(a[0]); ycoeff=base*np.sqrt(a[1])
     x=np.fft.irfft(xcoeff,n=n)+rng.normal(0,noise_rms_rad,n)
     y=np.fft.irfft(ycoeff,n=n)+rng.normal(0,noise_rms_rad,n)
